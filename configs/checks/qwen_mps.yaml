@@ -20,4 +20,7 @@ generate:
 latency:
   warmup_runs: 1
   timed_runs: 5
+  # dense: fast path. general_tier1: decision path, every token Tier 1 (2 host syncs per layer per token).
+  # lagate_noskip: our untrained router + EMA computed, thresholds -inf (routing cost, no savings).
+  engine_variants: [dense, general_tier1, lagate_noskip]
   hf_attn_implementations: [sdpa]   # HF default; HF eager gives NaN logits in fp16 on Qwen2.5 (q·kᵀ overflow), so it is not timed

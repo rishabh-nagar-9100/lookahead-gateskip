@@ -22,7 +22,9 @@ os.environ.setdefault("HF_DATASETS_OFFLINE", "1")
 
 import torch
 
-from lagate.engine.tiered import DensePolicy, TieredEngine
+from lagate.engine.tiered import DensePolicy, FixedTierPolicy, TieredEngine
+from lagate.models.gated import LookaheadGatedModel
+from lagate.routing.router import RouterConfig
 from lagate.models.adapter import DecoderAdapter, Dims
 from lagate.utils import REPO_ROOT, create_run_dir, load_config, save_json, set_seed
 
@@ -159,7 +161,18 @@ def main() -> None:
     for label in ("hf_default_config", "hf_pure_greedy"):
         for i, r in enumerate(out["generate_match"][label]):
             print(f"[generate] {label} prompt {i}: identical={r['identical']} first_divergence={r['first_divergence']}")
-    eng = TieredEngine(base, DensePolicy())
+    L = base.config.num_hidden_layers
+    engines = {}
+    for variant in lat.get("engine_variants", ["dense"]):
+        if variant == "dense":
+            engines[variant] = TieredEngine(base, DensePolicy())
+        elif variant == "general_tier1":
+            engines[variant] = TieredEngine(base, FixedTierPolicy(torch.ones(4096, L, dtype=torch.long, device=device)))
+        elif variant == "lagate_noskip":
+            gated = LookaheadGatedModel(base, RouterConfig.from_dict(load_config(REPO_ROOT / "configs/router/lagate.yaml"))).to(device)
+            engines[variant] = TieredEngine.from_gated_model(gated, float("-inf"), float("-inf"))
+        else:
+            raise ValueError(variant)
     for i, ids in enumerate(prompts):
         ids = ids.to(device)
         row = {"prompt_tokens": int(ids.shape[1])}
@@ -167,16 +180,18 @@ def main() -> None:
             base.set_attn_implementation(attn)
             row[f"hf_{attn}"] = time_fn(lambda: hf_generate(base, ids, n, **overrides), lat["warmup_runs"], lat["timed_runs"], device, n)
         base.set_attn_implementation(lat["hf_attn_implementations"][0])
-        row["engine_dense"] = time_fn(lambda: eng.generate(ids, n), lat["warmup_runs"], lat["timed_runs"], device, n)
+        for variant, eng in engines.items():
+            row[f"engine_{variant}"] = time_fn(lambda: eng.generate(ids, n), lat["warmup_runs"], lat["timed_runs"], device, n)
         out["latency"]["per_prompt"].append(row)
         print(f"[latency] prompt {i}: " + "  ".join(f"{k}={v['median_ms_per_token']:.1f} ms/tok"
                                                     for k, v in row.items() if isinstance(v, dict)))
     pp = out["latency"]["per_prompt"]
     for attn in lat["hf_attn_implementations"]:
         hf = statistics.median(r[f"hf_{attn}"]["median_ms_per_token"] for r in pp)
-        en = statistics.median(r["engine_dense"]["median_ms_per_token"] for r in pp)
-        out["latency"][f"ratio_engine_over_hf_{attn}"] = en / hf
-        print(f"[latency] engine/HF-{attn} = {en / hf:.2f}x  (engine {en:.1f}, HF {hf:.1f} ms/token, medians over prompts)")
+        for variant in engines:
+            en = statistics.median(r[f"engine_{variant}"]["median_ms_per_token"] for r in pp)
+            out["latency"][f"ratio_engine_{variant}_over_hf_{attn}"] = en / hf
+            print(f"[latency] engine_{variant}/HF-{attn} = {en / hf:.2f}x  (engine {en:.1f}, HF {hf:.1f} ms/token, medians over prompts)")
     save_json(out, run_dir / "metrics.json")
     print(f"[real_model_checks] -> {run_dir / 'metrics.json'}")
 
