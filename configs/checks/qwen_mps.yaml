@@ -1,0 +1,20 @@
+# Real-model checks on the cached Qwen2.5-1.5B-Instruct (no downloads): sizes vs config.json,
+# full-scale T-EQ, dense engine = HF greedy generate, and a first bs=1 latency pass (P5-01).
+name: realcheck_qwen_mps
+model: Qwen/Qwen2.5-1.5B-Instruct
+expected_dims_config: configs/flops/qwen.yaml   # dims we use for FLOP accounting
+device: mps
+teq_dtypes: [float32, float16]    # fp32 = tight check; fp16 = deployment dtype on MPS (D-08 configs)
+gen_dtype: float16
+prompts:
+  dataset: openai/gsm8k
+  subset: main
+  split: test
+  doc_ids: [0, 1, 2]
+  chat_config: configs/eval/gsm8k_chat_dense_qwen.yaml   # D-15 system instruction + chat template
+generate:
+  max_new_tokens: 64              # fixed length (no early stop) so timings compare
+latency:
+  warmup_runs: 1
+  timed_runs: 5
+  hf_attn_implementations: [sdpa, eager]   # HF default (sdpa) and eager (same math as our adapter)

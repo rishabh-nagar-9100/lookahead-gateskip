@@ -1,0 +1,176 @@
+"""Real-model checks (no downloads; uses the local HF cache).
+
+    1. Dims from config.json vs the dims our FLOP accounting uses.
+    2. T-EQ at full scale: our adapter's dense forward and the dense engine vs HF logits, per dtype.
+    3. Dense engine greedy decoding vs HF ``generate`` on GSM8K prompts (chat format, D-15).
+    4. P5-01 first pass: bs=1 ms/token, HF generate vs dense engine; warm-up excluded, median of N runs.
+
+Usage:
+    python scripts/real_model_checks.py --config configs/checks/qwen_mps.yaml --seed 0
+"""
+
+from __future__ import annotations
+
+import argparse
+import gc
+import os
+import statistics
+import time
+
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("HF_DATASETS_OFFLINE", "1")
+
+import torch
+
+from lagate.engine.tiered import DensePolicy, TieredEngine
+from lagate.models.adapter import DecoderAdapter, Dims
+from lagate.utils import REPO_ROOT, create_run_dir, load_config, save_json, set_seed
+
+
+def sync(device: str) -> None:
+    if device == "mps":
+        torch.mps.synchronize()
+    elif device.startswith("cuda"):
+        torch.cuda.synchronize()
+
+
+def load_model(name: str, dtype: str, device: str, attn: str = "sdpa"):
+    from transformers import AutoModelForCausalLM
+
+    m = AutoModelForCausalLM.from_pretrained(name, dtype=getattr(torch, dtype), attn_implementation=attn)
+    return m.to(device).eval()
+
+
+def build_prompts(cfg: dict, tok) -> list[torch.Tensor]:
+    from datasets import load_dataset
+
+    pc = cfg["prompts"]
+    ds = load_dataset(pc["dataset"], pc["subset"], split=pc["split"])
+    system = load_config(REPO_ROOT / pc["chat_config"])["eval"]["system_instruction"]
+    out = []
+    for i in pc["doc_ids"]:
+        msgs = [{"role": "system", "content": system}, {"role": "user", "content": ds[i]["question"]}]
+        ids = tok.apply_chat_template(msgs, add_generation_prompt=True, return_tensors="pt")
+        out.append(ids["input_ids"] if hasattr(ids, "keys") else ids)
+    return out
+
+
+@torch.no_grad()
+def teq(model, prompts, device) -> dict:
+    ad = DecoderAdapter(model)
+    eng = TieredEngine(model, DensePolicy())
+    rows = []
+    for ids in prompts:
+        ids = ids.to(device)
+        ref = model(ids).logits.float()
+        ours = ad.dense_forward(ids).float()
+        engl = eng.forward_chunk(ids, eng.new_cache()).float()
+        rows.append({
+            "prompt_tokens": ids.shape[1],
+            "max_abs_diff_adapter": (ours - ref).abs().max().item(),
+            "max_abs_diff_engine": (engl - ref).abs().max().item(),
+            "max_abs_logit": ref.abs().max().item(),
+            "argmax_agree_frac": (ours.argmax(-1) == ref.argmax(-1)).float().mean().item(),
+        })
+    return {"per_prompt": rows,
+            "max_abs_diff": max(max(r["max_abs_diff_adapter"], r["max_abs_diff_engine"]) for r in rows)}
+
+
+@torch.no_grad()
+def hf_generate(model, ids, n):
+    return model.generate(ids, max_new_tokens=n, min_new_tokens=n, do_sample=False,
+                          pad_token_id=model.config.eos_token_id if isinstance(model.config.eos_token_id, int) else 0)[:, ids.shape[1]:]
+
+
+def compare_generate(model, prompts, n, device) -> list[dict]:
+    eng = TieredEngine(model, DensePolicy())
+    rows = []
+    for ids in prompts:
+        ids = ids.to(device)
+        a = hf_generate(model, ids, n)[0].tolist()
+        b = eng.generate(ids, n)[0][0].tolist()
+        div = next((i for i, (x, y) in enumerate(zip(a, b)) if x != y), None)
+        rows.append({"identical": a == b, "first_divergence": div, "n_tokens": len(a)})
+    return rows
+
+
+def time_fn(fn, warmup: int, runs: int, device: str, n_tokens: int) -> dict:
+    for _ in range(warmup):
+        fn(); sync(device)
+    ts = []
+    for _ in range(runs):
+        sync(device)
+        t0 = time.perf_counter()
+        fn()
+        sync(device)
+        ts.append(time.perf_counter() - t0)
+    ms = [1000 * t / n_tokens for t in ts]
+    return {"median_ms_per_token": statistics.median(ms), "runs_ms_per_token": ms}
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--config", required=True)
+    p.add_argument("--seed", type=int, required=True)
+    args = p.parse_args()
+    cfg = load_config(args.config)
+    set_seed(args.seed)
+    device = cfg["device"]
+    run_dir = create_run_dir(cfg, args.seed, cfg["name"], extra_meta={"device": device})
+    from transformers import AutoConfig, AutoTokenizer
+
+    out: dict = {}
+    # 1. dims
+    hf_dims = Dims.from_hf_config(AutoConfig.from_pretrained(cfg["model"]))
+    ours = Dims(**load_config(REPO_ROOT / cfg["expected_dims_config"])["dims"])
+    out["dims"] = {"config_json": hf_dims.__dict__, "ours": ours.__dict__, "match": hf_dims == ours}
+    print(f"[dims] match={hf_dims == ours} {hf_dims}")
+
+    tok = AutoTokenizer.from_pretrained(cfg["model"])
+    prompts = build_prompts(cfg, tok)
+    out["prompt_tokens"] = [int(x.shape[1]) for x in prompts]
+
+    # 2. T-EQ per dtype
+    out["teq"] = {}
+    for dt in cfg["teq_dtypes"]:
+        model = load_model(cfg["model"], dt, device)
+        r = teq(model, prompts, device)
+        out["teq"][dt] = r
+        print(f"[T-EQ {dt}] max|Δlogit| = {r['max_abs_diff']:.3e}  "
+              f"(max|logit| {max(x['max_abs_logit'] for x in r['per_prompt']):.1f}; "
+              f"argmax agree {min(x['argmax_agree_frac'] for x in r['per_prompt']):.4f})")
+        del model; gc.collect(); torch.mps.empty_cache() if device == "mps" else None
+
+    # 3 + 4. generation and latency in the deployment dtype
+    n = cfg["generate"]["max_new_tokens"]
+    lat = cfg["latency"]
+    out["latency"] = {"new_tokens": n, "per_prompt": []}
+    models = {a: load_model(cfg["model"], cfg["gen_dtype"], device, attn=a) for a in lat["hf_attn_implementations"][:1]}
+    base = models[lat["hf_attn_implementations"][0]]
+    out["generate_match"] = compare_generate(base, prompts, n, device)
+    for i, r in enumerate(out["generate_match"]):
+        print(f"[generate] prompt {i}: identical={r['identical']} first_divergence={r['first_divergence']}")
+    eng = TieredEngine(base, DensePolicy())
+    for i, ids in enumerate(prompts):
+        ids = ids.to(device)
+        row = {"prompt_tokens": int(ids.shape[1])}
+        for attn in lat["hf_attn_implementations"]:
+            base.set_attn_implementation(attn)
+            row[f"hf_{attn}"] = time_fn(lambda: hf_generate(base, ids, n), lat["warmup_runs"], lat["timed_runs"], device, n)
+        base.set_attn_implementation(lat["hf_attn_implementations"][0])
+        row["engine_dense"] = time_fn(lambda: eng.generate(ids, n), lat["warmup_runs"], lat["timed_runs"], device, n)
+        out["latency"]["per_prompt"].append(row)
+        print(f"[latency] prompt {i}: " + "  ".join(f"{k}={v['median_ms_per_token']:.1f} ms/tok"
+                                                    for k, v in row.items() if isinstance(v, dict)))
+    pp = out["latency"]["per_prompt"]
+    for attn in lat["hf_attn_implementations"]:
+        hf = statistics.median(r[f"hf_{attn}"]["median_ms_per_token"] for r in pp)
+        en = statistics.median(r["engine_dense"]["median_ms_per_token"] for r in pp)
+        out["latency"][f"ratio_engine_over_hf_{attn}"] = en / hf
+        print(f"[latency] engine/HF-{attn} = {en / hf:.2f}x  (engine {en:.1f}, HF {hf:.1f} ms/token, medians over prompts)")
+    save_json(out, run_dir / "metrics.json")
+    print(f"[real_model_checks] -> {run_dir / 'metrics.json'}")
+
+
+if __name__ == "__main__":
+    main()
