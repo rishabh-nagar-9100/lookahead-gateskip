@@ -74,7 +74,8 @@ def git_info(repo: Path = REPO_ROOT) -> dict[str, Any]:
             return None
 
     commit = _git("rev-parse", "HEAD")
-    status = _git("status", "--porcelain")
+    # Only tracked changes count as dirty; untracked files (e.g. the run's own results dir) do not.
+    status = _git("status", "--porcelain", "--untracked-files=no")
     return {"commit": commit, "dirty": bool(status) if status is not None else None}
 
 
