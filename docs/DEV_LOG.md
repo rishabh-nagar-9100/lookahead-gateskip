@@ -14,6 +14,15 @@ Newest entry first. One entry per work session. Keep it short and factual.
 
 ---
 
+### 2026-11-06 · Phase 2 core on CPU · P2-00, P2-02 …
+**Done:**
+- D-16 active, with Rishabh's two additions: line-referenced evidence for the GateSkip claims (LITERATURE.md) and two port variants (exactKV main, copyKV for G4). Added P2-09, P2-10, P4-06 and E1-exactKV, E1-copyKV, E1-official.
+- P2-02 EMA memory (`lagate/routing/ema.py`): chunked causal scan + decode step; T-EMA green.
+**Results / numbers:** none (CPU unit tests only).
+**Problems / findings:**
+- **Correction to the GateSkip code review entry below:** their K,V copy from ℓ−1 never actually happens. `update_kv_cache` reads the cache from `module_output[1]`, which is the attention-weight tensor; the resulting error or early `None` is swallowed. Shown by running their function verbatim (`scripts/check_gateskip_kvcopy.py`). Their cache is therefore exact, and the G4 evidence has to come from our copyKV run.
+**Next:** P2-03 router.
+
 ### 2026-11-06 · D-15 protocol decision + robust extractor · P0-11, P0-12, P3-01
 **Done:**
 - Recorded **D-15**, which supersedes D-14 and D-11:
