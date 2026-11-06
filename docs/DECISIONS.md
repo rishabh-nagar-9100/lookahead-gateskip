@@ -33,3 +33,20 @@ Format: ID · date · decision · alternatives considered · reason · status (a
 
 ### D-07 · open · Gate scaling vs binary gates at inference
 - **Decide in:** Phase 3 after comparing both on the validation split.
+
+### D-08 · 2026-11-06 · GSM8K harness task: `gsm8k_cot_llama` with chat template, flexible-extract as headline
+- **Context:** EXPERIMENTS.md fixes "8-shot CoT, greedy, max 512 new tokens, exact match" but not the harness task, prompt format or answer filter.
+- **Decision:** lm-eval task `gsm8k_cot_llama` (fixed 8 exemplars, "The final answer is N" format) with `apply_chat_template=true`, `fewshot_as_multiturn=true`, `do_sample=false`, `max_gen_toks=512` (the task default has no limit, so HF would cap at 256). Same task for Llama and Qwen. Both `strict-match` and `flexible-extract` are logged; `flexible-extract` is the headline number.
+- **Alternatives:** `gsm8k_cot` (plain-text "Q:/A:" 8-shot, no chat template); `gsm8k` 5-shot.
+- **Reason:** both models are instruction-tuned and the task mirrors the 8-shot CoT format Meta uses for Llama 3 GSM8K evaluation; chat-formatted prompts avoid penalising instruct models on format.
+- **Status:** provisional — check against GateSkip's evaluation setup in P0-07 and switch (new entry) if they differ, so E0 and E1 are comparable.
+
+### D-09 · 2026-11-06 · `uv` + `.venv` instead of conda
+- **Alternatives:** conda (as written in the original SETUP.md).
+- **Reason:** conda is not installed on the dev Mac; `uv` is, and it provides Python 3.11 and fast, lockable installs. Exact versions are frozen in `requirements.lock.txt`.
+- **Status:** active.
+
+### D-10 · 2026-11-06 · CI installs only CPU test dependencies
+- **Alternatives:** install the full `requirements.txt` in CI.
+- **Reason:** the full set pulls CUDA torch and lm-eval (slow, large) although the CPU tests import only torch, transformers, pyyaml and python-dotenv. CI uses the CPU-only torch wheel and `pip install -e . --no-deps`. If a test later needs another package, add it to the workflow.
+- **Status:** active.

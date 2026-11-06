@@ -4,12 +4,12 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked (say why)
 Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation script`).
 
 ## Phase 0 – Setup
-- [ ] P0-01 Request Hugging Face access to meta-llama/Llama-3.2-1B-Instruct; create read token
-- [ ] P0-02 Confirm GPU access (model, VRAM, hours/week); record in SETUP.md
-- [ ] P0-03 Create private GitHub repo with the README layout; add .gitignore (results/raw, checkpoints, .env)
-- [ ] P0-04 Create Python 3.11 env; install pinned requirements; record versions in SETUP.md
-- [ ] P0-05 CI: GitHub Actions running pytest on CPU with a tiny random model
-- [ ] P0-06 E0: dense Llama-3.2-1B-Instruct on GSM8K (50-problem smoke test, then full test set)
+- [!] P0-01 Request Hugging Face access to meta-llama/Llama-3.2-1B-Instruct; create read token — waiting on Rishabh (licence approval + token in `.env`)
+- [!] P0-02 Confirm GPU access (model, VRAM, hours/week); record in SETUP.md — waiting on Rishabh / department
+- [~] P0-03 Create private GitHub repo with the README layout; add .gitignore (results/raw, checkpoints, .env) — local repo, layout and .gitignore done; GitHub remote still to be created and pushed by Rishabh
+- [x] P0-04 Create Python 3.11 env; install pinned requirements; record versions in SETUP.md (uv, D-09; `requirements.lock.txt`)
+- [~] P0-05 CI: GitHub Actions running pytest on CPU with a tiny random model — workflow + tests written, pytest green locally; first GitHub run pending the push (P0-03)
+- [!] P0-06 E0: dense Llama-3.2-1B-Instruct on GSM8K (50-problem smoke test, then full test set) — `scripts/eval_dense.py` + configs ready (D-08); run blocked on P0-01 (Llama access/token) and, for the full set, P0-02
 - [ ] P0-07 Clone GateSkip, pin commit hash in baselines/README.md, run its example
 - [ ] P0-08 Confirm review dates with guide; fill them into PROJECT_PLAN.md
 - [ ] P0-09 Optional: Weights & Biases project for run tracking
@@ -66,4 +66,7 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [ ] P7-04 Final presentation
 
 ## Blocked / waiting
-_(move items here with the reason and who you are waiting on)_
+- P0-01 Llama licence approval + HF token — Rishabh
+- P0-02 GPU model / VRAM / hours — Rishabh, department
+- P0-03 GitHub remote — Rishabh (create private repo, push `main`)
+- P0-06 E0 runs — blocked on P0-01 (50-problem smoke on MPS is fine; full set ideally on GPU)
