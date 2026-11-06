@@ -16,7 +16,7 @@ TINY_DEFAULTS: dict[str, Any] = dict(
     num_key_value_heads=2,   # GQA, as both real models
     max_position_embeddings=256,
     initializer_range=0.2,   # larger than default so attention patterns are not uniform
-    attn_implementation="eager",
+    attn_implementation="sdpa",  # same kernel as our adapter, so T-EQ compares like with like
 )
 
 

@@ -5,7 +5,7 @@ model's submodules instead of calling ``LlamaDecoderLayer.forward``, because the
 separately: RMSNorm, K,V projection with RoPE (all tiers), Q + attention + O-proj (tiers 1–2) and
 the MLP (tier 1). Weights stay in the HF modules, so PEFT/LoRA and checkpoint loading work as usual.
 
-Attention is the eager formulation (fp32 softmax, like HF ``eager_attention_forward``). The
+Attention uses PyTorch SDPA (like HF's default "sdpa" attention; eager overflows fp16 on Qwen2.5). The
 causal mask is built from absolute positions, so the same code serves prefill, cached decode and
 a subset of query rows (``attend`` takes the queries' positions).
 """
@@ -108,17 +108,20 @@ class DecoderAdapter(nn.Module):
 
         ``key_valid`` (B, Tk) bool masks padded keys. Returns the attention sub-layer output (B, Tq, H).
         """
-        groups = self.dims.n_heads // self.dims.n_kv_heads
-        k = k.repeat_interleave(groups, dim=1)
-        v = v.repeat_interleave(groups, dim=1)
-        scores = torch.matmul(q, k.transpose(-1, -2)) * self.scaling
-        allowed = k_pos[None, :] <= q_pos[:, None]  # (Tq, Tk)
-        allowed = allowed[None, None]
-        if key_valid is not None:
-            allowed = allowed & key_valid[:, None, None, :]
-        scores = scores.masked_fill(~allowed, torch.finfo(scores.dtype).min)
-        probs = torch.softmax(scores, dim=-1, dtype=torch.float32).to(q.dtype)
-        out = torch.matmul(probs, v).transpose(1, 2).reshape(q.shape[0], q.shape[2], -1)
+        # PyTorch SDPA (as HF's default "sdpa" attention). The eager q·kᵀ matmul overflows fp16 on
+        # Qwen2.5 (scores reach inf at layer 0; HF's own eager path gives NaN there too), and SDPA
+        # handles GQA without materialising repeated K,V.
+        Tq, Tk = q.shape[2], k.shape[2]
+        if key_valid is None and Tq == 1 and int(q_pos[0]) >= int(k_pos[-1]):
+            mask = None                                   # decode step: every cached key is visible
+        else:
+            mask = (k_pos[None, :] <= q_pos[:, None])[None, None]  # (1, 1, Tq, Tk)
+            if key_valid is not None:
+                mask = mask & key_valid[:, None, None, :]
+        out = nn.functional.scaled_dot_product_attention(
+            q, k, v, attn_mask=mask, scale=self.scaling, enable_gqa=self.dims.n_heads != self.dims.n_kv_heads
+        )
+        out = out.transpose(1, 2).reshape(q.shape[0], Tq, -1)
         return self.layers[layer].self_attn.o_proj(out)
 
     def mlp(self, layer: int, x: torch.Tensor) -> torch.Tensor:
