@@ -51,7 +51,7 @@ Recorded 2026-11-06 on the dev Mac (macOS 26 / Darwin 25.6, Apple Silicon, Pytho
 
 | Baseline | Source | Pinned commit | Runs? |
 |---|---|---|---|
-| GateSkip | https://github.com/Thiggel/GateSkip | | ☐ |
+| GateSkip | https://github.com/Thiggel/GateSkip | `8d565130266fecc4a2a5374d0ced135f05e4b9f9` | ☐ (cloned; needs CUDA env, see baselines/README.md) |
 | D-LLM | https://github.com/Jyk-122/D-LLM | | ☐ |
 | SkipGPT | https://github.com/EIT-NLP/SkipGPT | | ☐ |
 | FlexiDepth | released by the authors (find repo link in the arXiv page) | | ☐ |

@@ -20,3 +20,6 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+
+# Baseline clones (pinned in baselines/README.md)
+baselines/GateSkip/
