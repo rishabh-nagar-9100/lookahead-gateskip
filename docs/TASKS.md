@@ -22,10 +22,10 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [ ] P0-09 Optional: Weights & Biases project for run tracking
 
 ## Phase 1 – Pilot study
-- [ ] P1-01 E1: GateSkip on Llama-3.2-1B, GSM8K at 0/15/25/35% savings (use released checkpoint if available, else train with their config)
-- [ ] P1-02 Hook to log per-token, per-layer gate values and skip decisions during generation
-- [ ] P1-03 E2: error-token analysis script + token tagging (digits, operators, connectives, boilerplate)
-- [ ] P1-04 E3: adjacent-token gate correlation per layer (k = 1…8), plots
+- [ ] P1-01 E1: GateSkip on Llama-3.2-1B, GSM8K at 0/15/25/35% savings. No released checkpoint (P0-07), so train our port with their recipe (D-16, needs P2-09 + GPU)
+- [x] P1-02 Hook to log per-token, per-layer gate values and skip decisions during generation — `lagate/analysis/gate_logger.py` (GateLogger on engine or soft forward → npz + sequence meta); E2/E3 helpers in `lagate/analysis/gate_stats.py`
+- [ ] P1-03 E2: error-token analysis script + token tagging (digits, operators, connectives, boilerplate). Skip-rate helper `gate_stats.skip_rates` ready
+- [ ] P1-04 E3: adjacent-token gate correlation per layer (k = 1…8), plots. Correlation helper `gate_stats.adjacent_gate_correlation` ready
 - [ ] P1-05 Write pilot findings section in DEV_LOG; record go/no-go in DECISIONS.md
 - [ ] P1-06 R1 slides: pilot figures + implementation status
 
