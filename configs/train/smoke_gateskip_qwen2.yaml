@@ -1,0 +1,34 @@
+# P2-08 training smoke run: gateskip on a tiny random qwen2 (CPU, synthetic data, nothing downloaded).
+# Checks that the shared loop trains, losses fall and the calibrate -> bs=1 engine path runs. Not a result.
+name: smoke_gateskip_qwen2
+device: cpu
+model:
+  tiny: {arch: qwen2}            # lagate.models.tiny defaults (H=64, 3 layers, vocab 128)
+finetune:
+  mode: full
+method:
+  name: gateskip
+  router_config: configs/router/gateskip.yaml
+  sparsity_weight: 1.0             # L2 weight on gate values (official 1.0)
+  router_overrides:
+    num_increasing_steps: 20       # smoke only: complete the 0 -> 0.2 skip ramp within 20 steps (official 6800)
+data:
+  source: synthetic                # arithmetic progressions mod V (lagate.training.data)
+  batch_size: 8
+  min_len: 12
+  max_len: 32
+train:
+  steps: 20
+  lr: 3.0e-3                       # tiny random model: large lr so 20 steps show learning
+  router_lr: 1.0e-2
+  warmup_steps: 2
+  max_grad_norm: 1.0
+  log_every: 5
+smoke_eval:
+  engine_config: configs/engine/lagate.yaml
+  calibration_batches: 4
+  skip_fracs: [0.15, 0.35]
+  n_sequences: 8
+  prompt_len: 8
+  new_tokens: 8
+save_checkpoint: false
