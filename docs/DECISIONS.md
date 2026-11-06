@@ -162,3 +162,12 @@ Format: ID · date · decision · alternatives considered · reason · status (a
      - **GateSkip-exactKV:** our engine with real skipping and exact per-layer K,V for skipped tokens. **This is the main GateSkip baseline**, so differences from our method come only from routing. It also matches what their code actually computed.
      - **GateSkip-copyKV:** for skipped tokens, layer ℓ's cache entry is copied from layer ℓ−1's entry (their *intended* `update_kv_cache`). This measures what the copy costs, as evidence for gap G4. Because of the correction above, this is a measurement of the copy idea, not a reproduction of their numbers.
   - Tasks: P2-09 GateSkip port, P2-10 `kv_mode: copy_prev` option in the engine, P4-06 D-12(c) check. Experiments: E1-exactKV (main) and E1-copyKV in EXPERIMENTS.md.
+
+### D-17 · 2026-11-06 · active · Implementation details the spec leaves open (router, EMA, sparsity costs)
+ARCHITECTURE.md does not pin these down; the choices below are what the code does. None of them changes the method.
+- **RMSNorm(h_t)** (router input and EMA input) is the decoder layer's own `input_layernorm` output: the same tensor that feeds Q, K, V. It has a learned per-channel weight, costs nothing extra, and is available in every tier (Tier 3 needs it for K,V anyway).
+- **RMSNorm(ΔAttn)** is a router-owned RMSNorm (weight initialised to 1).
+- **ΔAttn** is the attention sub-layer output after O-proj and **before** gate scaling; at inference this is exactly what is added to the residual.
+- **Linear maps:** W_1 and W_a have no bias. The heads w_L, w_M have the +5 bias; their weights start at N(0, 0.01), as GateSkip's gates (`configs/router/lagate.yaml`).
+- **EMA scan:** chunked closed form (chunk 64) carrying the state between chunks; equal to the recurrence to 1e-12 in fp64 (T-EMA). The chunk length is a numerics/speed setting, not a hyperparameter.
+- **The EMA is updated for every token at every layer, whatever its tier**, because RMSNorm(h_t) is always computed.

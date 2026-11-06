@@ -1,0 +1,6 @@
+# LookAhead-GateSkip router (ARCHITECTURE §2–3, DECISIONS D-17). Loaded by lagate.routing.RouterConfig.from_dict.
+alpha: 0.7            # EMA weight on the current token; ablation E7: 0.5 / 0.9
+bottleneck: 64        # W_1: 2H -> 64, W_a: H -> 64
+bias_init: 5.0        # b_L = b_M = +5 -> gates start at about 0.993 (dense start)
+head_init_std: 0.01   # w_L, w_M ~ N(0, 0.01), as GateSkip's gate init
+ema_chunk_size: 64    # prefill scan chunk length (numerics/speed only)

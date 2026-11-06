@@ -33,7 +33,7 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [x] P2-00 Fork vs own package: D-16 active (own `lagate` package; GateSkip ported in two KV variants; evidence in LITERATURE.md)
 - [ ] P2-01 Model wrapper exposing per-layer attention / MLP / K,V projections for Llama and Qwen
 - [x] P2-02 EMA memory module (prefill scan + decode recurrence) with unit tests — `lagate/routing/ema.py`, T-EMA in `tests/test_ema.py`
-- [ ] P2-03 Dual-head router module (shared bottleneck, g_L, g_M with ΔAttn input), bias init
+- [x] P2-03 Dual-head router module (shared bottleneck, g_L, g_M with ΔAttn input), bias init — `lagate/routing/router.py`, `configs/router/lagate.yaml`, details D-17
 - [ ] P2-04 Soft-gated training forward pass
 - [ ] P2-05 Three-tier inference engine with exact Tier-3 K,V
 - [ ] P2-06 FLOP counter (per token, per tier) + router-overhead report
