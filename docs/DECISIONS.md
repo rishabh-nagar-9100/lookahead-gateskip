@@ -44,7 +44,7 @@ Format: ID · date · decision · alternatives considered · reason · status (a
 - **Decision:** lm-eval task `gsm8k_cot_llama` (fixed 8 exemplars, "The final answer is N" format) with `apply_chat_template=true`, `fewshot_as_multiturn=true`, `do_sample=false`, `max_gen_toks=512` (the task default has no limit, so HF would cap at 256). Same task for Llama and Qwen. Both `strict-match` and `flexible-extract` are logged; `flexible-extract` is the headline number.
 - **Alternatives:** `gsm8k_cot` (plain-text "Q:/A:" 8-shot, no chat template); `gsm8k` 5-shot.
 - **Reason:** both models are instruction-tuned and the task mirrors the 8-shot CoT format Meta uses for Llama 3 GSM8K evaluation; chat-formatted prompts avoid penalising instruct models on format.
-- **Status:** superseded by D-11 for trained-model comparisons (2026-11-06). Kept as a secondary dense-model sanity protocol (`gsm8k_cot_llama`, E0 smoke run `20261106-053918_gsm8k_dense_qwen_s0`).
+- **Status:** superseded for trained-model comparisons, first by D-11 and then by D-15 (2026-11-06). **Active as the protocol for the original (untrained) dense models** under D-15 (`gsm8k_cot_llama`, E0 smoke run `20261106-053918_gsm8k_dense_qwen_s0`).
 
 ### D-09 · 2026-11-06 · `uv` + `.venv` instead of conda
 - **Alternatives:** conda (as written in the original SETUP.md).
@@ -67,7 +67,7 @@ Format: ID · date · decision · alternatives considered · reason · status (a
 - **Consequences:**
   - The eval configs need a D-11 variant: task P0-10.
   - The dense Instruct model may score lower 0-shot in this format than with D-08. That's expected and gets reported as the dense reference under the same protocol.
-- **Status:** active.
+- **Status:** superseded by D-15 (2026-11-06). The plain-text format stays only for the GateSkip reproduction check, D-12(c), which runs in GateSkip's own code. Kept: full 1,319-problem test set, 512-token cap with cap-hit logging, strict-match headline.
 
 ### D-12 · 2026-11-06 · GateSkip baseline: retrain on our model; evaluate at bs=1 with fixed calibrated thresholds
 - **Context:**
@@ -92,7 +92,7 @@ Format: ID · date · decision · alternatives considered · reason · status (a
 - **Lean:** (b) for the main comparison plus (a) for GateSkip as a reference row. The final choice depends on the GPU (P0-02).
 - **Decide in:** P3-01, once GPU details are known.
 
-### D-14 · 2026-11-06 · proposed · Dense reference under D-11 = fine-tuned model at 0% skip; untrained dense is reported under D-08 only
+### D-14 · 2026-11-06 · superseded by D-15 · Dense reference under D-11 = fine-tuned model at 0% skip; untrained dense is reported under D-08 only
 - **Evidence:** run `20261106-060855_gsm8k_zs_dense_qwen_s0`. Untrained Qwen2.5-1.5B-Instruct under D-11 scored 0.0% strict and 16.0% flexible on 50 problems; 0/50 outputs used `#### N`, and 40% ran to the 512-token cap. The same model scored 62.0% on the same 50 problems under D-08. Without the chat template the Instruct model never emits an end-of-turn token, so it runs on after answering.
 - **What is wrong in D-11:** its "dense included" consequence. D-11 is right for trained models, which learn `#### N` + EOS from the D-06 data, but useless for an untouched Instruct model. GateSkip's "0% skip" point is likewise the fine-tuned gated model with no skipping, not the original pretrained model.
 - **Proposed change:**
@@ -102,5 +102,38 @@ Format: ID · date · decision · alternatives considered · reason · status (a
 - **Alternatives:**
   - Apply the chat template under D-11 too. That changes GateSkip's format, so trained models would then be evaluated on a format they weren't trained on.
   - Add `####` few-shot exemplars. That mixes in-context learning into a 0-shot protocol.
-- **Status:** proposed; Rishabh to confirm. Until then, nothing is reported as "dense" under D-11.
+- **Status:** superseded by D-15 (2026-11-06). Its idea of a trained 0%-skip reference is kept in D-15.
 - **Update (2026-11-06):** the alternative "chat format everywhere" (protocol B) was tested on the untrained Qwen model (run `20261106-063044_gsm8k_chat_dense_qwen_s0`) and **failed** the agreed criteria: 40% `#### N` outputs (needed ≥ 90%) and a 30-point strict/flexible gap (needed ≤ 4). The 2% cap rate passed. It is not adopted. The choice between A + D and other fallbacks is pending.
+
+### D-15 · 2026-11-06 · Chat-format training and evaluation; original models under D-08; Dense-FT reference
+- **Replaces:** D-14, and D-11 as the main comparison protocol.
+- **Decision:**
+  1. **Training format.** Convert the D-06 data (CommonsenseQA + GSM8K train) to chat messages for every trained method: GateSkip retrained under D-12, ours, Dense-FT and other baselines. Each example is a system instruction, then the question as the user turn, then the assistant turn `"{steps}\n#### {answer}"`. Training uses each model's own chat template, with the loss on assistant tokens only. GSM8K uses exactly the `system_instruction` from `configs/eval/gsm8k_chat_dense_*.yaml`. CommonsenseQA uses a matching instruction that asks for a final `#### <letter>` line (defined in P3-06).
+  2. **Main GSM8K protocol for trained models:** task `gsm8k_chat_zs` (`configs/eval/tasks/gsm8k_chat_zs.yaml`). 0-shot, chat template, the same system instruction as training, greedy, max 512 new tokens, all 1,319 test problems. Strict-match (`#### N`) is the headline. Always logged alongside it: our robust extractor (item 6), flexible-extract and the cap-hit rate.
+  3. **Original (untrained) dense models** are reported under D-08 only (8-shot chat CoT), as context. They are never scored under the main protocol, because they don't reliably produce `#### N` (see the evidence below).
+  4. **Dense-FT reference (option D).** Fine-tune the dense model on the same chat-format data, with the same recipe, steps and seeds as the main comparison (D-13 fine-tuning mode), but with **no router or gates**. Evaluate it under the main protocol. This is the 0%-compute reference that separates the effect of fine-tuning from the cost of skipping. Each method's own 0%-skip point (gates forced open) is reported next to it.
+  5. **GateSkip reproduction check, D-12(c):** unchanged, on base Llama-3.2-1B in GateSkip's native plain-text format and code.
+  6. **Robust secondary extractor** (`lagate.eval.answer`, computed by `eval_dense.py` as `robust_extract`). Markers are tried in priority order:
+     - `#### N` (first occurrence);
+     - `\boxed{N}` (first);
+     - "The final answer is N" / "The answer is N" (first, so run-on text is ignored);
+     - `**N**` (last bold number);
+     - otherwise the last number in the text.
+
+     `$`, thousands separators, `%` and trailing periods are removed, and the result is compared numerically with the gold answer. It is reported next to strict-match and **never replaces it as the headline**. It separates format failures from reasoning failures. Unit tests (`tests/test_answer_extractor.py`) use the five protocol-B outputs that strict-match rejected (docs 0, 1, 2, 3, 10); all five are scored correctly.
+- **Evidence:** E0 runs on the same 50 test problems, untrained Qwen2.5-1.5B-Instruct:
+
+  | Protocol | Strict | Flexible | `#### N` used | Hit cap | Avg tokens |
+  |---|---|---|---|---|---|
+  | D-08 | 62.0% | 62.0% | n/a | 0% | 143 |
+  | D-11 | 0.0% | 16.0% | 0% | 40% | 352 |
+  | Chat + instruction | 26.0% | 56.0% | 40% | 2% | 219 |
+
+  Robust extractor (re-scored post hoc on the same samples): D-08 64%, D-11 48%, chat 64%. The chat format fixes the run-on outputs, and its reasoning accuracy matches D-08 (64% vs 64% robust). Only the untrained model's `####` compliance failed, and training on the format addresses that.
+- **Reason:** one protocol for every trained model, with stopping at the chat end-of-turn token. That keeps output length and latency realistic (R8, E11), matches how Instruct models are deployed (and the demo), and still compares methods on identical data. Dense-FT answers the reviewer question "is the gain from fine-tuning or from routing?".
+- **Alternatives:**
+  - A + D: GateSkip's plain-text format with a Dense-FT reference. Rejected because stopping would depend on learned EOS, which risks D-11-style run-on outputs.
+  - Chat format with the untrained model scored under it: failed the agreed check.
+  - Extra stop strings: model-specific, and they can truncate reasoning.
+- **Verification checkpoint (P3-08):** after the **first Dense-FT model** is trained on the GPU, rerun the 3-criteria check on it: ≥ 90% of outputs contain `#### N`, ≤ 2% hit the 512-token cap, |strict − flexible| ≤ 4 points. Run it on the calibration split (held-out train data, never test). **If it fails, revisit the protocol before training any gated model** (GateSkip or ours).
+- **Status:** active.

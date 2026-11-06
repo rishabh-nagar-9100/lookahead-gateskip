@@ -1,7 +1,7 @@
-# E0 (primary protocol, D-11): dense baseline, GSM8K, Llama-3.2-1B-Instruct.
+# SUPERSEDED by D-15. Kept only so run 20261106-060855_gsm8k_zs_dense_qwen_s0 stays reproducible.
 # Protocol: lm-eval `gsm8k`, 0-shot "Question: ...\nAnswer:" (GateSkip format), no chat template, greedy, max 512 new tokens. See DECISIONS D-11.
 name: gsm8k_zs_dense_llama
-protocol: D-11   # primary GSM8K protocol
+protocol: D-11   # superseded (D-15); do not use for new runs
 
 model:
   pretrained: meta-llama/Llama-3.2-1B-Instruct

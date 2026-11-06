@@ -1,7 +1,7 @@
 # Dense baseline, GSM8K, Qwen2.5-1.5B-Instruct (used for E10 replication).
-# Protocol (secondary, D-08): gsm8k_cot_llama 8-shot chat CoT, greedy, max 512 new tokens. Primary protocol is D-11 (gsm8k_zs_dense_*).
+# Protocol D-08: gsm8k_cot_llama 8-shot chat CoT, greedy, max 512. Under D-15 this is THE protocol for original (untrained) models.
 name: gsm8k_dense_qwen
-protocol: D-08   # secondary dense sanity protocol (8-shot chat CoT)
+protocol: D-08   # original untrained models (D-15)
 
 model:
   pretrained: Qwen/Qwen2.5-1.5B-Instruct

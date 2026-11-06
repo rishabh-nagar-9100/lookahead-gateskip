@@ -1,7 +1,7 @@
-# Dense baseline, GSM8K, Qwen2.5-1.5B-Instruct: protocol B (chat format, 0-shot, system instruction asks for '#### N').
-# Task: configs/eval/tasks/gsm8k_chat_zs.yaml. Greedy, max 512 new tokens. See DECISIONS D-15.
+# Main GSM8K protocol for trained models (DECISIONS D-15): chat template, 0-shot, system instruction asks for "#### N".
+# Task: configs/eval/tasks/gsm8k_chat_zs.yaml. Greedy, max 512 new tokens. On an untrained model this is evidence only; report untrained models under D-08.
 name: gsm8k_chat_dense_qwen
-protocol: D-15   # chat-format 0-shot GSM8K
+protocol: D-15   # main protocol (trained models); P3-06 reuses system_instruction verbatim
 
 model:
   pretrained: Qwen/Qwen2.5-1.5B-Instruct

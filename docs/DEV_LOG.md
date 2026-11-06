@@ -14,6 +14,21 @@ Newest entry first. One entry per work session. Keep it short and factual.
 
 ---
 
+### 2026-11-06 · D-15 protocol decision + robust extractor · P0-11, P0-12, P3-01
+**Done:**
+- Recorded **D-15**, which supersedes D-14 and D-11:
+  - chat-format training and evaluation for all trained models;
+  - original untrained models reported under D-08 only;
+  - Dense-FT reference (no router), with E-DFT/E-DFT-Q rows in EXPERIMENTS.md;
+  - format checkpoint P3-08 on the first Dense-FT model before any gated training.
+- Added `lagate.eval.answer`, a robust secondary extractor handling `#### N`, `\boxed{N}`, "The (final) answer is N", `**N**`, `$`, commas and the last-number fallback. `eval_dense.py` logs it as `robust_extract`.
+- Tests: 20 extractor cases, including the five protocol-B outputs strict-match rejected (docs 0, 1, 2, 3, 10), all scored correctly; plus a test that all D-15 configs share one system instruction.
+- Config headers now state each protocol's role (D-08 for original models, D-15 main, D-11 superseded).
+- Phase 3 reordered: P3-06 chat data conversion → P3-07 Dense-FT → P3-08 checkpoint → gated training.
+**Results / numbers:** robust accuracy re-scored post hoc on the three E0 smoke runs (same 50 problems): D-08 64% (strict 62), D-11 48% (strict 0), chat 64% (strict 26). No false positives in a manual check of every case where robust disagreed with strict and flexible. 31 tests pass.
+**Problems:** none new. The robust numbers for the three E0 runs come from re-scoring their saved samples at this commit, not from the original runs.
+**Next:** waiting on Llama access (P0-01) and GPU (P0-02); then P3-06 data conversion and the P3-07 Dense-FT run.
+
 ### 2026-11-06 · Protocol-B check · P0-10, P0-11
 **Done:**
 - Added the custom lm-eval task `configs/eval/tasks/gsm8k_chat_zs.yaml` (bare question as the user turn, stock gsm8k scoring) and configs `gsm8k_chat_dense_{llama,qwen}.yaml`.

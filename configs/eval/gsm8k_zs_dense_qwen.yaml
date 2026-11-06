@@ -1,7 +1,7 @@
-# Dense baseline (primary protocol, D-11), GSM8K, Qwen2.5-1.5B-Instruct (E10 replication).
+# SUPERSEDED by D-15. Kept only so run 20261106-060855_gsm8k_zs_dense_qwen_s0 stays reproducible.
 # Protocol: lm-eval `gsm8k`, 0-shot "Question: ...\nAnswer:" (GateSkip format), no chat template, greedy, max 512 new tokens. See DECISIONS D-11.
 name: gsm8k_zs_dense_qwen
-protocol: D-11   # primary GSM8K protocol
+protocol: D-11   # superseded (D-15); do not use for new runs
 
 model:
   pretrained: Qwen/Qwen2.5-1.5B-Instruct

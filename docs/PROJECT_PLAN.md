@@ -50,6 +50,7 @@ The project is complete when all of these hold:
 - Train router + rank-16 LoRA with L = L_CE + λ·L_S (compute-weighted sparsity, see ARCHITECTURE).
 - Budget schedule 1.0 → 0.7; sweep λ.
 - Calibrate τ_L, τ_M on a held-out split to hit 15/25/35% compute reduction.
+- Convert the training data to chat format and train a Dense-FT reference (no router) with the same recipe (D-15).
 - Repeat for Qwen2.5-1.5B once Llama results are stable.
 
 **Exit criteria:** E4 (main result on Llama, GSM8K) logged with 3 seeds.

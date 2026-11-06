@@ -129,3 +129,13 @@ def test_git_dirty_ignores_only_untracked_results(tmp_path):
     # So does a modified tracked file.
     (tmp_path / "src" / "a.py").write_text("x = 2\n")
     assert git_info(tmp_path)["dirty"] is True
+
+
+def test_chat_protocol_configs_share_one_system_instruction():
+    """D-15: training data (P3-06) and every D-15 eval config must use the identical instruction."""
+    instructions = {
+        load_config(p)["eval"]["system_instruction"]
+        for p in (REPO_ROOT / "configs" / "eval").glob("*.yaml")
+        if load_config(p)["protocol"] == "D-15"
+    }
+    assert len(instructions) == 1

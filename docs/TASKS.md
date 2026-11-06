@@ -16,7 +16,8 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
   - its main model is base `meta-llama/Llama-3.2-1B`, also gated (P0-01);
   - installing its dependencies is waiting on Rishabh's OK.
 - [x] P0-10 Add D-11 eval configs (lm-eval `gsm8k`, 0-shot, no chat template, greedy, 512 tokens) and re-run the dense 50-problem smoke test with them. Configs `gsm8k_zs_dense_{llama,qwen}.yaml` + protocol test; run `20261106-060855_gsm8k_zs_dense_qwen_s0` gave 0.0% strict / 16.0% flexible (degenerate for an untrained Instruct model, D-14 proposed)
-- [!] P0-11 Choose the dense-reference protocol (D-14 vs fallback). Protocol B (chat + `####` instruction) failed its check (run `20261106-063044_gsm8k_chat_dense_qwen_s0`). Waiting on Rishabh's choice of fallback
+- [x] P0-11 Choose the dense-reference protocol. D-15: chat-format training and evaluation, untrained models under D-08, Dense-FT reference. Protocol B was checked in run `20261106-063044_gsm8k_chat_dense_qwen_s0` (failed for the untrained model, which motivated D-15)
+- [x] P0-12 Robust secondary GSM8K extractor (`lagate.eval.answer`, D-15) handling `#### N`, `\boxed{N}`, `**N**`, `$N`, commas and "The (final) answer is N"; logged by `eval_dense.py` as `robust_extract`; tests include the five failing protocol-B outputs
 - [ ] P0-08 Confirm review dates with guide; fill them into PROJECT_PLAN.md
 - [ ] P0-09 Optional: Weights & Biases project for run tracking
 
@@ -39,8 +40,14 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [ ] P2-08 Training smoke run (20 steps)
 
 ## Phase 3 – Training & calibration
-- [ ] P3-01 Choose training data (match GateSkip's setup for fairness); log in DECISIONS.md
-- [ ] P3-02 Training loop: LoRA r=16 + routers, compute-weighted sparsity loss, budget schedule
+- [x] P3-01 Choose training data (match GateSkip's setup for fairness); log in DECISIONS.md. D-06 (GateSkip's `csqa_gsm8k_gen` mix), chat format per D-15
+- [ ] P3-06 Convert the D-06 data to chat format (D-15). Each example: system instruction, question as the user turn, assistant turn `"{steps}\n#### {answer}"`; loss on assistant tokens only; use each model's chat template.
+  - GSM8K uses the exact `system_instruction` from `configs/eval/gsm8k_chat_dense_*.yaml`. Read it from there, don't copy it; a test should check the two match.
+  - CommonsenseQA gets a matching instruction asking for a final `#### <letter>` line.
+  - Pin the dataset revisions, and add a unit test on a few rendered examples for Llama and Qwen.
+- [ ] P3-07 Dense-FT reference training (D-15, E-DFT): same chat data, recipe, steps and seeds as the main comparison (D-13 fine-tuning mode), no router or gates. Llama-3.2-1B-Instruct first, then Qwen2.5-1.5B-Instruct (E-DFT-Q).
+- [ ] P3-08 **Verification checkpoint (D-15):** on the first Dense-FT model (E-DFT seed 1), calibration split: ≥ 90% `#### N`, ≤ 2% cap hits, |strict − flexible| ≤ 4 pts; also log robust accuracy. **If it fails, revisit the protocol before training any gated model (P3-02 onward, P4-01 GateSkip).**
+- [ ] P3-02 Training loop: LoRA r=16 + routers, compute-weighted sparsity loss, budget schedule (gated training starts only after P3-08 passes)
 - [ ] P3-03 λ sweep (3–4 values) on Llama
 - [ ] P3-04 Calibration script: τ_L, τ_M from empirical CDF for 15/25/35%
 - [ ] P3-05 E4: main GSM8K result, 3 seeds

@@ -17,6 +17,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+from lagate.eval.answer import score_samples
 from lagate.utils import REPO_ROOT, create_run_dir, load_config, save_json, set_seed
 
 
@@ -141,13 +142,15 @@ def main() -> None:
         tok = AutoTokenizer.from_pretrained(model_cfg["pretrained"])
         raw_dir = REPO_ROOT / "results" / "raw" / run_dir.name
         raw_dir.mkdir(parents=True, exist_ok=True)
-        lengths = {}
+        lengths, robust = {}, {}
         for task, task_samples in samples.items():
             with open(raw_dir / f"samples_{task}.jsonl", "w", encoding="utf-8") as f:
                 for s in task_samples:
                     f.write(json.dumps(s, default=str) + "\n")
             lengths[task] = output_length_stats(task_samples, tok, eval_cfg["gen_kwargs"]["max_gen_toks"])
+            robust[task] = score_samples(task_samples)  # secondary metric (D-15); strict stays headline
         metrics["output_length"] = lengths
+        metrics["robust_extract"] = robust
         metrics["raw_samples_dir"] = str(raw_dir.relative_to(REPO_ROOT))
 
     save_json(metrics, run_dir / "metrics.json")
@@ -158,6 +161,8 @@ def main() -> None:
         print(f"[eval_dense] {task}: {shown}")
         if primary in res:
             print(f"[eval_dense] {task} {primary} = {res[primary]:.4f}")
+        if task in metrics.get("robust_extract", {}):
+            print(f"[eval_dense] {task} robust_extract = {metrics['robust_extract'][task]}")
     print(f"[eval_dense] runtime {runtime_s:.1f}s -> {run_dir / 'metrics.json'}")
 
 
