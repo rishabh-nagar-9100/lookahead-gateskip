@@ -37,7 +37,7 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [x] P2-04 Soft-gated training forward pass — `lagate/models/gated.py` (LookaheadGatedModel, CE + λ·L_S, right padding); T-EQ in `tests/test_gated_forward.py`
 - [x] P2-05 Three-tier inference engine with exact Tier-3 K,V — `lagate/engine/tiered.py` (bs=1, own KV+EMA cache, policies: Lagate/Dense/FixedTier), `configs/engine/lagate.yaml`; T-KV, T-T3 in `tests/test_engine.py`
 - [x] P2-06 FLOP counter (per token, per tier) + router-overhead report — `lagate/engine/flops.py`, `scripts/flop_report.py`; router 0.57–0.64% of a dense layer (Llama), 0.56–0.63% (Qwen)
-- [ ] P2-07 Tests T-EQ, T-KV, T-T3, T-FLOP green on CPU and GPU
+- [ ] P2-07 Tests T-EQ, T-KV, T-T3, T-FLOP, T-EMA green on CPU and GPU — **CPU: all green** on tiny random Llama + Qwen2 (107 tests, ≈5 s; T-KV/T-T3 in fp64, D-17). GPU run waits on P0-02
 - [ ] P2-08 Training smoke run (20 steps)
 - [ ] P2-09 GateSkip port `lagate/routing/gateskip.py` (vector gate on module input, L2 loss averaged over modules, percentile ramp, gate scaling at inference) with a hand-calculation unit test (D-16)
 - [ ] P2-10 Engine option `kv_mode: exact | copy_prev`. `copy_prev` copies layer ℓ−1's cache entry into layer ℓ for skipped tokens (GateSkip's intended behaviour), for E1-copyKV (D-16)
