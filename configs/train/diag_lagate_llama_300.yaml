@@ -1,0 +1,32 @@
+# DIAGNOSTIC (not for reporting): 300-step version of the P2-08 smoke run, to check the loop learns: lagate on a tiny random llama (CPU, synthetic data, nothing downloaded).
+# Checks that the shared loop trains, losses fall and the calibrate -> bs=1 engine path runs. Not a result.
+name: diag_lagate_llama_300
+device: cpu
+model:
+  tiny: {arch: llama}            # lagate.models.tiny defaults (H=64, 3 layers, vocab 128)
+finetune:
+  mode: full
+method:
+  name: lagate
+  router_config: configs/router/lagate.yaml
+  sparsity_weight: 0.1             # λ on the compute-weighted L_S
+data:
+  source: synthetic                # arithmetic progressions mod V (lagate.training.data)
+  batch_size: 8
+  min_len: 12
+  max_len: 32
+train:
+  steps: 300
+  lr: 3.0e-3                       # tiny random model: large lr so 20 steps show learning
+  router_lr: 1.0e-2
+  warmup_steps: 2
+  max_grad_norm: 1.0
+  log_every: 50
+smoke_eval:
+  engine_config: configs/engine/lagate.yaml
+  calibration_batches: 4
+  skip_fracs: [0.15, 0.35]
+  n_sequences: 8
+  prompt_len: 8
+  new_tokens: 8
+save_checkpoint: false
