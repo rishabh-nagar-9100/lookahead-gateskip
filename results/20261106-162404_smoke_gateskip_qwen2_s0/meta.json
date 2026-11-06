@@ -1,0 +1,30 @@
+{
+  "run_id": "20261106-162404_smoke_gateskip_qwen2_s0",
+  "seed": 0,
+  "created_utc": "2026-11-06T16:24:04.873515+00:00",
+  "git": {
+    "commit": "ea185227eb2285d9daa2fc0918bcb0820e96ab3a",
+    "dirty": false
+  },
+  "packages": {
+    "lagate": "0.0.1",
+    "torch": "2.15.0",
+    "transformers": "5.22.1",
+    "accelerate": "1.15.0",
+    "peft": "0.21.2",
+    "datasets": "5.1.0",
+    "lm_eval": "0.4.13",
+    "numpy": "2.4.6",
+    "pyyaml": "6.0.3"
+  },
+  "python": "3.11.15 (main, Jun 23 2026, 15:46:51) [Clang 22.1.3 ]",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "argv": [
+    "scripts/train.py",
+    "--config",
+    "configs/train/smoke_gateskip_qwen2.yaml",
+    "--seed",
+    "0"
+  ],
+  "device": "cpu"
+}

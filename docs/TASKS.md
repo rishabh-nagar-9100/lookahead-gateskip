@@ -38,9 +38,9 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [x] P2-05 Three-tier inference engine with exact Tier-3 K,V — `lagate/engine/tiered.py` (bs=1, own KV+EMA cache, policies: Lagate/Dense/FixedTier), `configs/engine/lagate.yaml`; T-KV, T-T3 in `tests/test_engine.py`
 - [x] P2-06 FLOP counter (per token, per tier) + router-overhead report — `lagate/engine/flops.py`, `scripts/flop_report.py`; router 0.57–0.64% of a dense layer (Llama), 0.56–0.63% (Qwen)
 - [ ] P2-07 Tests T-EQ, T-KV, T-T3, T-FLOP, T-EMA green on CPU and GPU — **CPU: all green** on tiny random Llama + Qwen2 (107 tests, ≈5 s; T-KV/T-T3 in fp64, D-17). GPU run waits on P0-02
-- [ ] P2-08 Training smoke run (20 steps)
+- [x] P2-08 Training smoke run (20 steps) — `lagate/training/loop.py` + `scripts/train.py`, 4 runs (ours, GateSkip × tiny Llama, Qwen2), see EXPERIMENTS run log
 - [x] P2-09 GateSkip port `lagate/routing/gateskip.py` (vector gate on module input, L2 loss averaged over modules, percentile ramp, gate scaling at inference) with a hand-calculation unit test (D-16) — `lagate/routing/gateskip.py` (GateSkipModel training forward, GateSkipPolicy for the engine), `lagate/calibration/ecdf.py`, `configs/router/gateskip.yaml`; calibrated fixed thresholds (D-18); tests incl. official-code cross-checks
-- [ ] P2-10 Engine option `kv_mode: exact | copy_prev`. `copy_prev` copies layer ℓ−1's cache entry into layer ℓ for skipped tokens (GateSkip's intended behaviour), for E1-copyKV (D-16)
+- [ ] P2-10 *(optional, low priority)* Engine option `kv_mode: copy_prev`: copy layer ℓ−1's cache entry into layer ℓ for skipped tokens. GateSkip's copy never runs (LITERATURE.md, claim 2), so this would only test an idea no published method uses. Do it only if time allows after Phase 4 (E1-copyKV)
 
 ## Phase 3 – Training & calibration
 - [x] P3-01 Choose training data (match GateSkip's setup for fairness); log in DECISIONS.md. D-06 (GateSkip's `csqa_gsm8k_gen` mix), chat format per D-15
@@ -51,6 +51,7 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [ ] P3-07 Dense-FT reference training (D-15, E-DFT): same chat data, recipe, steps and seeds as the main comparison (D-13 fine-tuning mode), no router or gates. Llama-3.2-1B-Instruct first, then Qwen2.5-1.5B-Instruct (E-DFT-Q).
 - [ ] P3-08 **Verification checkpoint (D-15):** on the first Dense-FT model (E-DFT seed 1), calibration split: ≥ 90% `#### N`, ≤ 2% cap hits, |strict − flexible| ≤ 4 pts; also log robust accuracy. **If it fails, revisit the protocol before training any gated model (P3-02 onward, P4-01 GateSkip).**
 - [ ] P3-02 Training loop: LoRA r=16 + routers, compute-weighted sparsity loss, budget schedule (gated training starts only after P3-08 passes)
+  - Done on CPU (P2-08): shared loop `lagate.training.loop` for ours / GateSkip port / Dense-FT, with full, LoRA and router-only modes and the compute-weighted L_S. Still to do: the real data source (P3-06), the budget schedule, and a LoRA r=16 config once D-13 is decided.
 - [ ] P3-03 λ sweep (3–4 values) on Llama
 - [ ] P3-04 Calibration script: τ_L, τ_M from empirical CDF for 15/25/35%
 - [ ] P3-05 E4: main GSM8K result, 3 seeds

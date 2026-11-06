@@ -160,7 +160,7 @@ Format: ID · date · decision · alternatives considered · reason · status (a
   1. **Evidence:** each implementation claim is backed by file and line references at the pinned commit in LITERATURE.md (GateSkip, "Evidence for the implementation claims"). That check corrected claim 2: the K,V copy is intended but never happens, so their published numbers use each token's own exact K,V.
   2. **Two port variants with the same trained weights.** The variant is an engine setting (`kv_mode`), not a separate training run:
      - **GateSkip-exactKV:** our engine with real skipping and exact per-layer K,V for skipped tokens. **This is the main GateSkip baseline**, so differences from our method come only from routing. It also matches what their code actually computed.
-     - **GateSkip-copyKV:** for skipped tokens, layer ℓ's cache entry is copied from layer ℓ−1's entry (their *intended* `update_kv_cache`). This measures what the copy costs, as evidence for gap G4. Because of the correction above, this is a measurement of the copy idea, not a reproduction of their numbers.
+     - **GateSkip-copyKV:** for skipped tokens, layer ℓ's cache entry is copied from layer ℓ−1's entry (their *intended* `update_kv_cache`). This measures what the copy costs, as evidence for gap G4. Because of the correction above, this is a measurement of the copy idea, not a reproduction of their numbers. **Revised by D-19:** optional and low priority, and not evidence for G4.
   - Tasks: P2-09 GateSkip port, P2-10 `kv_mode: copy_prev` option in the engine, P4-06 D-12(c) check. Experiments: E1-exactKV (main) and E1-copyKV in EXPERIMENTS.md.
 
 ### D-17 · 2026-11-06 · active · Implementation details the spec leaves open (router, EMA, sparsity costs)
@@ -192,4 +192,21 @@ ARCHITECTURE.md does not pin these down; the choices below are what the code doe
 - **Reason:** without this, GateSkip has no bs=1 decode savings, so a matched-compute comparison at bs=1 (D-05) would be meaningless. Using the same calibration for both methods means differences come from the routers, not the thresholding.
 - **Reporting:** state this adaptation wherever GateSkip-exactKV numbers appear. The native batch-quantile mode is reported only in the D-12(c) reproduction check (E1-official).
 - **Cost note:** the vector gates are two Linear(H, H) per layer and run for every token: 2H² MACs per layer, about 13.7% of a dense Llama-3.2-1B layer at n = 128 (FLOP report). Our counter includes this when matching budgets.
+- **Status:** active.
+
+### D-19 · 2026-11-06 · active · Gap G4 rests on FlexiDepth vs D-LLM; the batch-size-1 threshold finding joins G6
+- **Context:** the code check (LITERATURE.md, GateSkip claim 2) showed that GateSkip's K,V copy from layer ℓ−1 never executes. The module always runs, so its cache holds each token's own exact K,V. Any claim that GateSkip corrupts or copies K,V is therefore wrong.
+- **Decision:**
+  - **G4 (K,V of skipped tokens)** is framed on FlexiDepth vs D-LLM only:
+    - FlexiDepth computes K,V for skipped tokens, so the cache stays complete.
+    - D-LLM evicts skipped tokens' K,V, so later tokens can no longer attend to those entries at that layer.
+
+    Our Tier 3 takes the compute side at 2–4% of a dense layer (FLOP report) and is compared with both in E5. Both characterisations come from our paper reading (LITERATURE.md table); check them against the papers/code before writing them up.
+  - **Exact K,V is a correctness property of our engine** (ARCHITECTURE §5, test T-T3), **not a contribution over GateSkip.** GateSkip's own code is effectively exact too.
+  - **G6 (batch-size-1 deployment)** gains the threshold finding:
+    - GateSkip's inference thresholds are quantiles over the current forward pass (`threshold_finder.py:29–36`, `GatedWrapper.py:59–61, 102`). With one token per pass they return 0.0, so no module is skipped during bs=1 decoding. Its reported savings depend on batched evaluation (eval batch 128).
+    - **Contribution:** fixed per-module thresholds from the calibration-split empirical CDF, applied the same way to every method (D-18). Our method and the GateSkip port both skip at bs=1, and compute is measured with real skipping in the engine.
+  - E1-copyKV / P2-10 become optional and low priority (TASKS.md, EXPERIMENTS.md).
+- **Not changed:** D-03. Tier 3 computes its own K,V, and the alternatives listed there (cross-layer copy, eviction) are still the design space, but the copy alternative is not attributed to GateSkip.
+- **Note:** the full G1–G6 list lives in the R0 deck. PAPER_PLAN.md now records G4 and G6; the other gaps should be copied in from the deck.
 - **Status:** active.

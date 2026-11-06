@@ -76,6 +76,8 @@ Open question (decide in Phase 3, log in DECISIONS): keep gate scaling at infere
 
 - g_M is only computed when attention ran (tiers 1–2).
 - **Tier 3 never copies K,V from another layer.** Layer-ℓ keys and values are computed from the token's own unchanged hidden state, so every later query attends to a correctly-projected cache entry.
+- Exact K,V is a **correctness property** of the engine (checked by T-T3), not a contribution claimed over GateSkip, whose code also ends up with exact K,V (DECISIONS D-19). The related-work contrast (gap G4) is FlexiDepth (computes K,V for skipped tokens) vs D-LLM (evicts them).
+- Thresholds are fixed values calibrated on the calibration split (§6), so skipping works at batch size 1. Batch-quantile thresholds (GateSkip's native mode) skip nothing at bs=1 decode (D-18, gap G6).
 - Batch size 1 is the target setting; the engine may assume one sequence at a time.
 
 ## 6. Threshold calibration

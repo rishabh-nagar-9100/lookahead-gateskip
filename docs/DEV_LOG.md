@@ -14,6 +14,19 @@ Newest entry first. One entry per work session. Keep it short and factual.
 
 ---
 
+### 2026-11-06 · GateSkip port, training loop, gap revision · P2-09, P2-08, P3-02 (part)
+**Done:**
+- P2-09 GateSkip port (`lagate/routing/gateskip.py`): faithful training forward (vector gates on detached module inputs, output scaling, padding/EOS importance 1, percentile ramp, L2 loss) and `GateSkipPolicy` for the engine. Fixed per-module thresholds from the calibration-split empirical CDF (`lagate/calibration/ecdf.py`), recorded as a documented adaptation (D-18) with the `threshold_finder.py` evidence. Tests cross-check the ramp threshold and gate init against the official functions, and show their batch quantile skips 0 of 400 decode tokens at bs=1 while calibrated thresholds skip ≈ 25%.
+- Engine policies now provide their own gate scaling (vector for GateSkip), MLP input and router cost.
+- Shared training loop (`lagate/training/loop.py`, `scripts/train.py`): ours / GateSkip / Dense-FT; full, LoRA, router-only; synthetic data source; end-to-end smoke eval (calibrate → bs=1 engine).
+- P2-08: four 20-step smoke runs (both methods × tiny Llama, Qwen2).
+- D-19: G4 rests on FlexiDepth vs D-LLM; exact K,V is a correctness property, not a claim against GateSkip. The bs=1 threshold finding joins G6 and becomes contribution C6 (PAPER_PLAN). P2-10 / E1-copyKV are optional.
+**Results / numbers:**
+- FLOP report re-run: GateSkip's vector gates cost 2H² MACs per layer = 13.7% of a dense Llama-1B layer (10.0% Qwen), vs 0.6% for our router.
+- Smoke runs (EXPERIMENTS run log): CE about 6.1 → 5.0 in 20 steps. A 300-step diagnostic (scratchpad, not registered) reached CE 0.89 (ours) and 1.32 (GateSkip), with 84% dense continuation accuracy, so the loop learns. At H=64 the gates are huge relative to a layer, so tiny-model compute numbers mean nothing.
+**Problems:** G1–G3, G5 are not in the repo (only in the R0 deck).
+**Next:** push to GitHub (waiting on the URL); P3-06 chat data; GPU (P0-02).
+
 ### 2026-11-06 · Phase 2 core on CPU · P1-02, P2-00 … P2-07
 **Done:**
 - D-16 active, with Rishabh's two additions: line-referenced evidence for the GateSkip claims (LITERATURE.md) and two port variants (exactKV main, copyKV for G4). Added P2-09, P2-10, P4-06 and E1-exactKV, E1-copyKV, E1-official.

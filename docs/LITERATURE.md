@@ -108,7 +108,7 @@ Why it is a no-op:
 
 Transformers 4.44–4.47 also returns the attention weights at index 1. That case was not simulated.
 
-**Consequence:** because the module always runs, the cache keeps each skipped token's **own, exact** layer-ℓ K,V. Their published numbers therefore reflect exact K,V, which is what our Tier 3 does, not a cross-layer copy. Evidence on what a copy costs (gap G4) has to come from our own GateSkip-copyKV run (D-16, E1-copyKV), not from their numbers.
+**Consequence:** because the module always runs, the cache keeps each skipped token's **own, exact** layer-ℓ K,V. Their published numbers therefore reflect exact K,V, which is what our Tier 3 does, not a cross-layer copy. So no claim that GateSkip corrupts or copies K,V should be made. Gap G4 is framed on FlexiDepth vs D-LLM instead, and E1-copyKV is optional (D-19).
 
 **Claim 3: thresholds depend on the batch, so nothing is skipped at batch size 1. TRUE for decode steps; prefill still skips.**
 `GatedWrapper.py:59–61` pools the importances of all valid tokens in the current forward pass. At eval, `increasing_threshold` is off (`jobs/job_common.sh:32` passes only `--use-gating --skip-modules`), so `:102` calls `ThresholdFinder.find_threshold` with `desired_skip_ratio` set per budget (`experiment/runners/EvaluationRunner.py:265–280`). In `experiment/utils/threshold_finder.py:29–36`:
@@ -134,7 +134,7 @@ threshold = torch.quantile(scores, quantile, interpolation='linear')
   - We use calibrated fixed thresholds that work at batch size 1, instead of batch quantiles.
   - We train LoRA + router; they do full fine-tuning.
   - We target Instruct models; their main 1B results use the base model.
-- **Baseline?** Yes, the main one (D-01). Reproducing it needs a GPU (see D-06, D-12). To be comparable at batch size 1, it must be evaluated with fixed calibrated thresholds as well as its native batch-quantile mode.
+- **Baseline?** Yes, the main one (D-01). Reproducing it needs a GPU (see D-06, D-12). At batch size 1 it is evaluated with fixed empirical-CDF thresholds (D-18, port in `lagate/routing/gateskip.py`); the native batch-quantile mode is used only in the D-12(c) reproduction check.
 
 ## Novelty watch
 
