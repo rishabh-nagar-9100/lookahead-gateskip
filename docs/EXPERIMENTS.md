@@ -9,7 +9,8 @@ Rules:
 
 | Benchmark | Split | Setting | Metric |
 |---|---|---|---|
-| GSM8K | test (1,319) | 8-shot CoT, greedy, max 512 new tokens | exact match |
+| GSM8K | test (1,319) | lm-eval `gsm8k`, 0-shot "Question/Answer … #### N" (GateSkip format, D-11), no chat template, greedy, max 512 new tokens | exact match (strict headline, flexible logged) |
+| GSM8K (secondary, dense sanity only) | test | `gsm8k_cot_llama` 8-shot chat CoT, greedy, max 512 (D-08) | exact match |
 | ARC-Challenge | test | 25-shot (harness default) | acc_norm |
 | PIQA | validation | 0-shot | acc |
 | MBPP | test | harness default, greedy | pass@1 |

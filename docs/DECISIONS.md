@@ -27,11 +27,16 @@ Format: ID · date · decision · alternatives considered · reason · status (a
 - **Reason:** GateSkip already performs well on instruction-tuned models; a relative Pareto improvement is the defensible claim.
 - **Status:** active.
 
-### D-06 · open · Training data for router + LoRA
+### D-06 · 2026-11-06 · Training data for router + LoRA: GateSkip's `csqa_gsm8k_gen` mix
 - **Options:** reuse GateSkip's training setup (preferred for a fair comparison); add a math-heavy SFT subset.
-- **Decide in:** P3-01.
+- **Decision:** train both GateSkip (E1) and ours on GateSkip's mix: the CommonsenseQA train split with Nemotron-70B reasoning traces (`multi-domain-reasoning/commonsense_qa`) plus the GSM8K train split (`openai/gsm8k`). Format is `"Question: {q}\nAnswer:"` → `" {steps}\n#### {answer}"` + EOS, max length 1,024, overlong samples dropped, 1 epoch. Pin both dataset revisions in the config when P3-01 is implemented.
+- **Reason:** identical data removes data as a confound in the GateSkip comparison. A math-heavy extra subset stays an optional later ablation and is never used for the main comparison.
+- **Source:** GateSkip code at `8d56513`, `experiment/datasets/DatasetConfigurator.py` + `HFReasoningDataset.py` (notes in LITERATURE.md).
+- **Still open (D-13):** full fine-tuning (GateSkip) vs LoRA r=16 (ours).
+- **Status:** active.
 
 ### D-07 · open · Gate scaling vs binary gates at inference
+- **Note (2026-11-06):** GateSkip keeps gate scaling at inference (`output = g * module_out`; skipped tokens get zero), so it is GateSkip-style scaling.
 - **Decide in:** Phase 3 after comparing both on the validation split.
 
 ### D-08 · 2026-11-06 · GSM8K harness task: `gsm8k_cot_llama` with chat template, flexible-extract as headline
@@ -39,7 +44,7 @@ Format: ID · date · decision · alternatives considered · reason · status (a
 - **Decision:** lm-eval task `gsm8k_cot_llama` (fixed 8 exemplars, "The final answer is N" format) with `apply_chat_template=true`, `fewshot_as_multiturn=true`, `do_sample=false`, `max_gen_toks=512` (the task default has no limit, so HF would cap at 256). Same task for Llama and Qwen. Both `strict-match` and `flexible-extract` are logged; `flexible-extract` is the headline number.
 - **Alternatives:** `gsm8k_cot` (plain-text "Q:/A:" 8-shot, no chat template); `gsm8k` 5-shot.
 - **Reason:** both models are instruction-tuned and the task mirrors the 8-shot CoT format Meta uses for Llama 3 GSM8K evaluation; chat-formatted prompts avoid penalising instruct models on format.
-- **Status:** provisional — check against GateSkip's evaluation setup in P0-07 and switch (new entry) if they differ, so E0 and E1 are comparable.
+- **Status:** superseded by D-11 for trained-model comparisons (2026-11-06). Kept as a secondary dense-model sanity protocol (`gsm8k_cot_llama`, E0 smoke run `20261106-053918_gsm8k_dense_qwen_s0`).
 
 ### D-09 · 2026-11-06 · `uv` + `.venv` instead of conda
 - **Alternatives:** conda (as written in the original SETUP.md).
@@ -50,3 +55,39 @@ Format: ID · date · decision · alternatives considered · reason · status (a
 - **Alternatives:** install the full `requirements.txt` in CI.
 - **Reason:** the full set pulls CUDA torch and lm-eval (slow, large) although the CPU tests import only torch, transformers, pyyaml and python-dotenv. CI uses the CPU-only torch wheel and `pip install -e . --no-deps`. If a test later needs another package, add it to the workflow.
 - **Status:** active.
+
+### D-11 · 2026-11-06 · Primary GSM8K protocol = GateSkip's format (0-shot "Question/Answer … #### N"), full test set
+- **Context:** GateSkip evaluates with the stock lm-eval `gsm8k` task, 0-shot, prompt `"Question: …\nAnswer:"`, no chat template, greedy, 1,024 max new tokens, `exact_match`. That format matches its training data (D-06). D-08 used a different format (8-shot chat, "The final answer is N"). Every trained model we compare (GateSkip, ours, baselines) learns the `#### N` format during training, so D-08 would test them on a prompt format they weren't trained on.
+- **Decision:** for all E1–E10 GSM8K numbers (dense included), use lm-eval `gsm8k` with `num_fewshot=0`, no chat template, greedy, **max 512 new tokens** (EXPERIMENTS.md; log how often the cap is hit and raise to 1,024 if > 1%), and **all 1,319 test problems**. GateSkip's code hard-codes `limit=100`. Report strict-match (`#### N`) as the headline and log flexible-extract too.
+- **Alternatives:** keep D-08 (chat 8-shot) for everything; copy GateSkip exactly, including `limit=100` and 1,024 tokens.
+- **Reason:**
+  - It matches how the base method was trained and evaluated.
+  - The full test set gives a ±1.3-point standard error instead of ±4–5 on 100 problems.
+  - 512 tokens follows our fixed protocol; E0 outputs average 143 tokens (max 312).
+- **Consequences:**
+  - The eval configs need a D-11 variant: task P0-10.
+  - The dense Instruct model may score lower 0-shot in this format than with D-08. That's expected and gets reported as the dense reference under the same protocol.
+- **Status:** active.
+
+### D-12 · 2026-11-06 · GateSkip baseline: retrain on our model; evaluate at bs=1 with fixed calibrated thresholds
+- **Context:**
+  - GateSkip has **no released checkpoints**, so it has to be trained.
+  - Its main 1B runs use **base** Llama-3.2-1B; we target **Instruct**.
+  - Its inference threshold is a quantile over the current forward pass. At bs=1 decode (one token per pass) it returns 0.0 and nothing is skipped.
+  - Its skipping zeroes module outputs after running the module, so plain HF evaluation saves no compute.
+- **Decision:**
+  - (a) Train GateSkip with its official recipe (job `GateSkip-separate-vector`, our D-06 data) on **Llama-3.2-1B-Instruct**, and later on Qwen2.5-1.5B-Instruct.
+  - (b) Evaluate it with the same calibration procedure as ours (ARCHITECTURE §6): fixed thresholds per budget on the calibration split, applied at bs=1, compute counted with our FLOP counter, latency measured with real module skipping in our engine.
+  - (c) Also report one **reproduction check**: GateSkip on base Llama-3.2-1B in its native batch-quantile mode on GSM8K at 0% and 15%, against the paper's numbers. This confirms our setup reproduces theirs.
+- **Alternatives:** compare against their numbers as published (different model, 100 problems, batch-relative thresholds); use their native mode only.
+- **Reason:** a fair, deployable bs=1 comparison at matched compute (D-05). Their native mode can't produce bs=1 decode savings.
+- **Status:** active. Needs a GPU (P0-02).
+
+### D-13 · open · Fine-tuning mode: full fine-tune (GateSkip recipe) vs LoRA r=16 (our plan)
+- **Context:** GateSkip trains the whole backbone (lr 3e-6) plus ≈134M gate params on 1× A100 80 GB. We planned LoRA r=16 + routers.
+- **Options:**
+  - (a) Each method uses its own recipe (GateSkip full fine-tune, ours LoRA). Faithful, but this mixes up method and fine-tuning capacity.
+  - (b) Both use LoRA r=16. Fair, cheaper, and fits a 24 GB GPU, but GateSkip is then weaker than the original.
+  - (c) Both use full fine-tuning. Fair and strong, but needs ≥ 40–80 GB VRAM.
+- **Lean:** (b) for the main comparison plus (a) for GateSkip as a reference row. The final choice depends on the GPU (P0-02).
+- **Decide in:** P3-01, once GPU details are known.

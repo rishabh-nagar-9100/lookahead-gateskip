@@ -10,7 +10,12 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [x] P0-04 Create Python 3.11 env; install pinned requirements; record versions in SETUP.md (uv, D-09; `requirements.lock.txt`)
 - [~] P0-05 CI: GitHub Actions running pytest on CPU with a tiny random model — workflow + tests written, pytest green locally; first GitHub run pending the push (P0-03)
 - [!] P0-06 E0: dense Llama-3.2-1B-Instruct on GSM8K (50-problem smoke test, then full test set) — pipeline verified with a 50-problem Qwen smoke run (62.0%, run `20261106-053918_gsm8k_dense_qwen_s0`); Llama runs blocked on gated-access approval (P0-01: token works, repo returns 403), full set ideally on GPU (P0-02)
-- [ ] P0-07 Clone GateSkip, pin commit hash in baselines/README.md, run its example
+- [~] P0-07 Clone GateSkip, pin commit hash in baselines/README.md, run its example. Cloned and pinned at `8d56513`, code read, notes in LITERATURE.md, D-06/D-11/D-12/D-13 recorded. **Running it is blocked:**
+  - no released checkpoint, so it must be trained;
+  - its stack needs CUDA (torch 2.8 cu12, flash-attn, vLLM) and Python 3.10 in a separate env (P0-02 GPU);
+  - its main model is base `meta-llama/Llama-3.2-1B`, also gated (P0-01);
+  - installing its dependencies is waiting on Rishabh's OK.
+- [ ] P0-10 Add D-11 eval configs (lm-eval `gsm8k`, 0-shot, no chat template, greedy, 512 tokens) and re-run the dense 50-problem smoke test with them
 - [ ] P0-08 Confirm review dates with guide; fill them into PROJECT_PLAN.md
 - [ ] P0-09 Optional: Weights & Biases project for run tracking
 
@@ -69,4 +74,5 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - P0-01 Llama licence approval (token done) — waiting on Meta/Hugging Face
 - P0-02 GPU model / VRAM / hours — Rishabh, department
 - P0-03 GitHub remote — Rishabh (create private repo, push `main`)
+- P0-07 run GateSkip: needs GPU (P0-02), base Llama-3.2-1B access (P0-01), OK to install its deps
 - P0-06 Llama E0 runs — blocked on P0-01; full set ideally on GPU (≈12 s/problem on MPS → ~4.5 h for 1,319)
