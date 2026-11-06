@@ -17,6 +17,8 @@ import os
 import statistics
 import time
 
+# Offline by default (use the local cache, never download silently). On a fresh GPU machine set
+# HF_HUB_OFFLINE=0 HF_DATASETS_OFFLINE=0 for the first run (scripts/setup_gpu.sh does this).
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 os.environ.setdefault("HF_DATASETS_OFFLINE", "1")
 
@@ -147,7 +149,11 @@ def main() -> None:
         print(f"[T-EQ {dt}] max|Δlogit| = {r['max_abs_diff']:.3e}  "
               f"(max|logit| {max(x['max_abs_logit'] for x in r['per_prompt']):.1f}; "
               f"argmax agree {min(x['argmax_agree_frac'] for x in r['per_prompt']):.4f})")
-        del model; gc.collect(); torch.mps.empty_cache() if device == "mps" else None
+        del model; gc.collect()
+        if device == "mps":
+            torch.mps.empty_cache()
+        elif device.startswith("cuda"):
+            torch.cuda.empty_cache()
 
     # 3 + 4. generation and latency in the deployment dtype
     n = cfg["generate"]["max_new_tokens"]
