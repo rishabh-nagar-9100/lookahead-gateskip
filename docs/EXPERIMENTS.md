@@ -26,7 +26,10 @@ Rules:
 | ID | Goal | Model | Notes | Status |
 |---|---|---|---|---|
 | E0 | Dense baseline | Llama-3.2-1B-Instruct (+ Qwen2.5-1.5B-Instruct) | GSM8K first, then all four. Llama gated access pending → 50-problem smoke run done on Qwen first | in progress |
-| E1 | GateSkip baseline at 0/15/25/35% | Llama-3.2-1B | official code, pinned commit | todo |
+| E1 | GateSkip baseline at 0/15/25/35% | Llama-3.2-1B | Our port (D-16), trained once with their recipe in our pipeline. The two rows below are engine settings on the **same weights** | todo |
+| E1-exactKV | GateSkip, main baseline | Llama-3.2-1B | Our engine: real skipping, exact per-layer K,V for skipped tokens, calibrated bs=1 thresholds. Differences from E4 come only from routing. Matches what the official code actually computes | todo |
+| E1-copyKV | GateSkip, cost of copying K,V (gap G4) | Llama-3.2-1B | Same weights and thresholds as E1-exactKV, `kv_mode: copy_prev` (layer ℓ−1's entry copied into layer ℓ for skipped tokens, GateSkip's intended design). Report Δ accuracy vs E1-exactKV at each budget | todo |
+| E1-official | D-12(c) reproduction check | Llama-3.2-1B (base) | Official code at the pinned commit, native format, 0% and 15%. Our port must match within seed noise (P4-06) | todo |
 | E2 | Error-token analysis | Llama-3.2-1B + GateSkip | tag tokens; compare skip rates on failed vs passed problems | todo |
 | E3 | Adjacent-token gate correlation | Llama-3.2-1B + GateSkip | Pearson r for lags 1–8, per layer | todo |
 | E-DFT | Dense-FT reference (0% compute) | Llama-3.2-1B-Instruct | Same chat data, recipe, steps and seeds as E1/E4, no router or gates (D-15). GSM8K main protocol, 3 seeds. Seed-1 model gates the format check P3-08 | todo |

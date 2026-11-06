@@ -30,7 +30,7 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [ ] P1-06 R1 slides: pilot figures + implementation status
 
 ## Phase 2 – Core implementation
-- [!] P2-00 Fork vs own package (D-16, proposed: own `lagate` package + GateSkip port). Waiting on Rishabh's OK before any Phase 2 code
+- [x] P2-00 Fork vs own package: D-16 active (own `lagate` package; GateSkip ported in two KV variants; evidence in LITERATURE.md)
 - [ ] P2-01 Model wrapper exposing per-layer attention / MLP / K,V projections for Llama and Qwen
 - [ ] P2-02 EMA memory module (prefill scan + decode recurrence) with unit tests
 - [ ] P2-03 Dual-head router module (shared bottleneck, g_L, g_M with ΔAttn input), bias init
@@ -39,6 +39,8 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [ ] P2-06 FLOP counter (per token, per tier) + router-overhead report
 - [ ] P2-07 Tests T-EQ, T-KV, T-T3, T-FLOP green on CPU and GPU
 - [ ] P2-08 Training smoke run (20 steps)
+- [ ] P2-09 GateSkip port `lagate/routing/gateskip.py` (vector gate on module input, L2 loss averaged over modules, percentile ramp, gate scaling at inference) with a hand-calculation unit test (D-16)
+- [ ] P2-10 Engine option `kv_mode: exact | copy_prev`. `copy_prev` copies layer ℓ−1's cache entry into layer ℓ for skipped tokens (GateSkip's intended behaviour), for E1-copyKV (D-16)
 
 ## Phase 3 – Training & calibration
 - [x] P3-01 Choose training data (match GateSkip's setup for fairness); log in DECISIONS.md. D-06 (GateSkip's `csqa_gsm8k_gen` mix), chat format per D-15
@@ -59,6 +61,7 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [ ] P4-03 E6 EMA off · E7 α sweep · E8 previous-token gate · E9 no ΔAttn / two tiers
 - [ ] P4-04 E10 Qwen2.5-1.5B replication
 - [ ] P4-05 R2 slides
+- [ ] P4-06 D-12(c): our GateSkip port vs official code (base Llama-3.2-1B, native format, 0% and 15%), on the GPU (D-16)
 
 ## Phase 5 – Latency
 - [ ] P5-01 Batch-size-1 decode harness (warm-up, CUDA sync, median of N runs)
