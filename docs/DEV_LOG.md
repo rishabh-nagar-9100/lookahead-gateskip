@@ -14,6 +14,14 @@ Newest entry first. One entry per work session. Keep it short and factual.
 
 ---
 
+### 2026-11-07 · D-22 / E12 / P5-08 aligned with Rishabh's spec
+**Done:**
+- D-22 rewritten to Rishabh's wording: an optional lookahead mode (not a replacement) that predicts token t's tiers from h_(t−1), μ_(t−1), so the decode layer loop needs no host syncs; makes "LookAhead" literal.
+- ΔAttn options for the MLP head: (a) ΔAttn_(t−1), (b) drop it, (c) hybrid with in-loop g_M where predicted tier ≤ 2, (d) predict ΔAttn. Test order (b), (a), then (c).
+- E12: current vs lookahead at the same budgets, accuracy and bs=1 latency on CUDA and MPS; not before GPU training works; decide after the first CUDA numbers.
+- P5-08: may not be used for reported numbers until an equivalence test against the bs=1 engine passes (decisions, outputs, FLOP/tier counts). The test covers left padding: pads must not update the EMA, act as keys, get decisions or counts, or shift RoPE positions.
+**Next:** unchanged; P0-13 on the first GPU session.
+
 ### 2026-11-07 · GPU prep, budget, sync modes · P0-14, P5-06, D-22
 **Done:**
 - `docs/GPU_RUNBOOK.md` and `scripts/setup_gpu.sh`: stages clone / env (uv, Python 3.11, CUDA torch at the lock pin, rest of the lock) / dotenv (never prints the token) / test / teq (full-scale real-model checks, Qwen then Llama if accessible) / smoke (50 problems). Cloud rental section. CUDA check configs `configs/checks/{qwen,llama}_cuda.yaml`. Script syntax-checked; dotenv + test stages run locally; CUDA stages untested.

@@ -42,7 +42,7 @@ Rules:
 | E10 | Replication | Qwen2.5-1.5B | E4 + E5 subset | todo |
 | E-DFT-Q | Dense-FT reference (0% compute) | Qwen2.5-1.5B-Instruct | As E-DFT, for E10 | todo |
 | E11 | Latency | both | bs=1; CUDA + MPS; ms/token, time/problem, length, memory | todo |
-| E12 | Lookahead decision mode (D-22, proposed) | Llama-3.2-1B (+ Qwen if it works) | Router variant whose tier decisions for token t at every layer come from token t−1's state, so a decode step needs at most one host sync. Trained with the same recipe as E4. Compare with E4 at matched compute (GSM8K, 3 budgets) and bs=1 ms/token (E11 harness). Go/no-go: accuracy within E4's seed spread and a lower ms/token than E4 | proposed |
+| E12 | Current vs lookahead decision mode (D-22, proposed) | Llama-3.2-1B (+ Qwen if it works) | Accuracy (GSM8K, then the suite) and bs=1 latency (ms/token, time per problem; E11 harness) of the current mode vs lookahead mode **at the same compute budgets** (3 budgets, matched by calibration), on **both CUDA and MPS**. Lookahead variants for the MLP head: (b) no ΔAttn, (a) ΔAttn from t−1, then (c) hybrid as a middle point. Same training recipe and seeds as E4. Report the agreement between lookahead decisions and the current mode's decisions per layer. **Not before Phase 3 training works on the GPU; decide after the first CUDA numbers** | proposed |
 
 ## Run log
 

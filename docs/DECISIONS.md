@@ -226,18 +226,25 @@ ARCHITECTURE.md does not pin these down; the choices below are what the code doe
 - **Alternative:** keep the model's default penalty in both HF and the engine (implement repetition penalty in the engine). Rejected for now: the protocol says greedy, a penalty is model-specific, and it would make Llama and Qwen decode under different rules.
 - **Status:** **active** (approved by Rishabh 2026-11-06). All six eval configs set `repetition_penalty: 1.0`, and a protocol test enforces it. Earlier Qwen runs (053918, 060855, 063044) are marked as penalty-1.1 runs in EXPERIMENTS.md; the D-08 smoke is re-run under pure greedy.
 
-### D-22 · 2026-11-07 · proposed · Lookahead decision mode: decide token t's tiers from token t−1's state
-- **Context** (R4, P5-06):
-  - Real skipping at bs=1 needs to know, on the host, whether to launch a module. On MPS each in-loop decision costs a queue drain.
-  - Our router with no skipping runs at 65.1 ms/token vs 40.8 for the dense engine (run `20261106-190740`).
-  - `sync_mode: per_layer` (speculative attention, one sync per layer) only reaches 62.2. The cost is having *any* sync inside the 28-layer loop, not the number of syncs.
-- **Proposal:** an optional router mode, `decision: lookahead`.
-  - **What changes:** token t's decisions at every layer ℓ are computed from information available before token t enters the network: μ_(t−1)^ℓ, RMSNorm(h_(t−1)^ℓ) and ΔAttn_(t−1)^ℓ, all from token t−1's pass. The gates for step t are computed at the end of step t−1, as one (L × 2) tensor, and copied to the host once (one sync per token, which `generate` already pays for the argmax). Step t then runs with no in-loop syncs, and the kernels can be launched back to back (and later captured in CUDA graphs per tier pattern).
-  - **What stays the same:** Tier 3 still computes exact K,V; the tiers, thresholds (§6), FLOP accounting and losses are unchanged; and the soft-gated training forward uses the shifted inputs.
-- **Cost to the method:** the decision no longer sees the current token's own hidden state or ΔAttn. This is a different router, and it might route worse; E12 measures how much. It fits the cross-token idea (G1), since the EMA already carries the context. Token 0 / prefill keeps the standard mode, because prefill decisions sync once per chunk anyway.
-- **Alternatives:**
-  - Keep the standard mode and accept 1.6×+ overhead at bs=1 on MPS (CUDA syncs are cheaper; measure there first).
-  - Device-side conditionals (CUDA graph conditional nodes), which are CUDA-only and complex.
-  - Masked execution, which saves FLOPs on paper but no time.
-- **Experiment:** E12 (EXPERIMENTS.md).
-- **Status:** proposed. Not implemented. Decide after the first CUDA latency numbers (E11 / P5-02), because on CUDA the standard mode may already be fast enough.
+### D-22 · 2026-11-07 · proposed · Lookahead decision mode: an optional variant that predicts token t's tiers from the router state after token t−1
+- **What it is:** a second decision mode, `decision: lookahead`, next to the current mode, **not a replacement**. The current mode (decisions from the token's own h_t, μ_t and ΔAttn_t; ARCHITECTURE §3, §5) stays the main method.
+- **How it works:** the tiers for token t at each layer ℓ are predicted from the router state after token t−1, i.e. h_(t−1)^ℓ and μ_(t−1)^ℓ.
+  - All of token t's decisions are therefore known before its forward pass. They are computed at the end of step t−1 as one (L × 2) tensor, and read on the host together with the argmax that `generate` already syncs on.
+  - The layer loop then needs **no host syncs**. Kernels launch back to back, and CUDA graphs per tier pattern become possible.
+  - Tier 3 still computes exact K,V. Thresholds (§6, D-18), FLOP accounting and losses are unchanged in form.
+- **Why:**
+  - **Latency:** on MPS any sync inside the layer loop costs about a queue drain. Our router with no skipping is 65.1 ms/token per module and 62.2 with `sync_mode: per_layer`, against 40.8 for the dense engine (runs `20261106-180357`, `20261106-190740`; R4, P5-06).
+  - **It makes the "LookAhead" name literal.** The cross-token EMA memory is what should make one-step-ahead predictions accurate. If E12 shows they are, this supports G1 directly: routing evidence carried across tokens is enough to decide the next token's depth.
+- **Open design question: the MLP head's ΔAttn input.** g_M = σ(w_M·[z ∥ W_a·RMSNorm(ΔAttn)] + b_M) needs the current token's attention output, which doesn't exist ahead of time. Options:
+  - **(a) Use ΔAttn from token t−1** (the previous token's attention update at the same layer). Same router architecture and parameter count. Train with the shifted input so training and inference match. Risk: the previous token's ΔAttn may say little about the current token's MLP need, especially at boundaries (new sentence, digit vs word).
+  - **(b) Drop ΔAttn in this mode.** g_M = σ(w_M'·z + b_M), from h_(t−1), μ_(t−1) only. Simplest. Measure the cost against (a) and against the current mode. This doubles as the "no ΔAttn" ablation (E9) in lookahead form.
+  - **(c) Two-stage hybrid.** Predict g_L ahead (no in-loop sync for the layer decision). Compute g_M in the loop from the current ΔAttn, but only for layers whose predicted tier is 1 or 2, using `sync_mode: per_layer` (one sync per such layer). Keeps ΔAttn exact at the cost of some syncs; useful as a middle point in E12.
+  - **(d) Predict ΔAttn_t** from μ_(t−1) with a small head trained to regress it. More parameters and a second loss; only if (a) and (b) both lose clearly.
+
+  Proposed order for E12: (b) and (a) first, (c) as the middle point, (d) only if needed.
+- **Prefill / token 0:** the prompt is processed with the current mode (one sync per chunk, not per token). Lookahead applies to decode steps only. The first decode token uses the last prompt token's state.
+- **Training:** the soft-gated forward shifts the router inputs by one position (token t's gates from position t−1's normalised hidden state and EMA; position 0 uses μ_0 = 0 and its own state). The loss L_S and the KV/tier rules are unchanged. Needs a shifted-input equivalence test (training forward vs engine) as T-KV does for the current mode.
+- **Alternatives:** stay with the current mode and accept the in-loop sync cost (CUDA syncs are far cheaper than MPS; measure first). Device-side conditionals (CUDA graph conditional nodes): CUDA-only and complex. Masked execution: saves FLOPs on paper, not time.
+- **Experiment:** E12 (EXPERIMENTS.md). **Implementation:** P5-07, not before Phase 3 training works on the GPU.
+- **Decision point:** after the first CUDA latency numbers (P0-13 / E11). If the current mode is already fast enough on CUDA, lookahead is still worth E12 for the MPS / edge setting and for G1, but as lower priority.
+- **Status:** proposed (wording aligned with Rishabh, 2026-11-07).

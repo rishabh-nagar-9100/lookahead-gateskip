@@ -70,8 +70,13 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [ ] P5-01 Batch-size-1 decode harness (warm-up, CUDA sync, median of N runs) — first pass in `scripts/real_model_checks.py` (MPS, HF vs engine variants, warm-up + median of 5); CUDA sync and E11 harness still to do
 - [x] P5-05 Engine speed (dense mode): preallocated KV cache, lazy on-device FLOP stats, dense fast path, sync-free decode attention, EMA only when used, last-position logits. **Dense engine 1.05× HF on MPS** (40.8 vs 39.0 ms/token, was 2.38×); torch.compile not needed for this target
 - [~] P5-06 Cut routing host syncs. Done: `sync_mode: per_layer` (speculative decode attention, 1 sync per layer), with tests. Measured on MPS: 65.1 → 62.2 ms/token (dense 40.8), so it is not enough. Next: CUDA numbers (P0-02), then decide D-22 (lookahead decision mode, E12)
-- [ ] P5-07 *(if D-22 accepted)* Implement `decision: lookahead` in router, training forward and engine; tests (T-KV, shifted-input equivalence); E12
-- [ ] P5-08 *(proposed; biggest GPU-hour saving)* Batched masked accuracy evaluation for gated models: with fixed thresholds each token's decisions depend only on its own sequence, so batches can run every module and mask by the decisions. Must match the bs=1 engine (equivalence test: same decisions, greedy outputs equal up to float ties, same FLOP counts). bs=1 stays for latency (E11). Cuts the estimate ≈ 4× (GPU_BUDGET.md)
+- [ ] P5-07 *(if D-22 accepted; not before Phase 3 training works on the GPU)* Implement `decision: lookahead` as an optional mode (current mode stays the main method): router inputs from token t−1's state, MLP-head options (a) ΔAttn_(t−1) / (b) no ΔAttn / (c) hybrid, shifted training forward, engine path with no in-loop syncs. Tests: shifted-input equivalence (training forward vs engine), T-KV, T-T3. Then E12 on CUDA and MPS
+- [ ] P5-08 *(proposed; biggest GPU-hour saving)* Batched masked accuracy evaluation for gated models with fixed thresholds; bs=1 stays for latency (E11). Cuts the estimate ≈ 4× (GPU_BUDGET.md). **Not to be used for any reported number until its equivalence test passes:**
+  - Same tier decisions as the bs=1 engine, per token and layer, for every sequence in a mixed-length batch.
+  - Same outputs: logits within tolerance, and greedy tokens equal (allow differences only at documented float near-ties, and report them).
+  - Same FLOP counts and tier counts.
+  - **Left padding:** pad tokens never update the EMA state (μ stays μ_0 = 0 until a row's first real token), never enter attention as keys, never get gate decisions or FLOP/tier counts, and don't shift positions (RoPE positions start at 0 at each row's first real token).
+  - Tests: one row vs the same row alone in the batch; rows of different lengths; an all-pad prefix longer than the EMA chunk; at least one budget where all three tiers occur.
 - [ ] P5-02 E11 CUDA latency for all methods; torch.compile / CUDA graphs variants
 - [ ] P5-03 E11 Apple MPS latency
 - [ ] P5-04 Output-length and time-per-problem analysis
