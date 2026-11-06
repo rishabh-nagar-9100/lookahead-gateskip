@@ -1,0 +1,16 @@
+name: flops_llama
+model: meta-llama/Llama-3.2-1B-Instruct
+dims:
+  num_layers: 16
+  hidden: 2048
+  intermediate: 8192
+  n_heads: 32
+  n_kv_heads: 8
+  head_dim: 64
+  vocab: 128256
+router_config: configs/router/lagate.yaml
+context_lengths:
+- 128
+- 512
+- 1024
+- 2048

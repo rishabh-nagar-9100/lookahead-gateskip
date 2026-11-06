@@ -1,0 +1,58 @@
+{
+  "model": "meta-llama/Llama-3.2-1B-Instruct",
+  "bottleneck": 64,
+  "per_layer_per_token": [
+    {
+      "context_length": 128,
+      "dense_macs": 61341696,
+      "tier1_macs": 61735104,
+      "tier2_macs": 11403456,
+      "tier3_macs": 2359360,
+      "tier1_frac_of_dense": 1.0064133864182692,
+      "tier2_frac_of_dense": 0.1859005659054487,
+      "tier3_frac_of_dense": 0.038462581797542736,
+      "router_macs": 393408,
+      "router_overhead_frac": 0.006413386418269231,
+      "mlp_share_of_dense": 0.8205128205128205
+    },
+    {
+      "context_length": 512,
+      "dense_macs": 62914560,
+      "tier1_macs": 63307968,
+      "tier2_macs": 12976320,
+      "tier3_macs": 2359360,
+      "tier1_frac_of_dense": 1.0062530517578125,
+      "tier2_frac_of_dense": 0.2062530517578125,
+      "tier3_frac_of_dense": 0.037501017252604164,
+      "router_macs": 393408,
+      "router_overhead_frac": 0.0062530517578125,
+      "mlp_share_of_dense": 0.8
+    },
+    {
+      "context_length": 1024,
+      "dense_macs": 65011712,
+      "tier1_macs": 65405120,
+      "tier2_macs": 15073472,
+      "tier3_macs": 2359360,
+      "tier1_frac_of_dense": 1.0060513404107863,
+      "tier2_frac_of_dense": 0.23185779202368953,
+      "tier3_frac_of_dense": 0.036291307018649195,
+      "router_macs": 393408,
+      "router_overhead_frac": 0.00605134041078629,
+      "mlp_share_of_dense": 0.7741935483870968
+    },
+    {
+      "context_length": 2048,
+      "dense_macs": 69206016,
+      "tier1_macs": 69599424,
+      "tier2_macs": 19267776,
+      "tier3_macs": 2359360,
+      "tier1_frac_of_dense": 1.0056845925071023,
+      "tier2_frac_of_dense": 0.278411865234375,
+      "tier3_frac_of_dense": 0.034091833866003785,
+      "router_macs": 393408,
+      "router_overhead_frac": 0.005684592507102273,
+      "mlp_share_of_dense": 0.7272727272727273
+    }
+  ]
+}
