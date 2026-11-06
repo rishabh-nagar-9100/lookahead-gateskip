@@ -1,0 +1,32 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest-cpu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # CI needs only what the CPU tests import (DECISIONS D-10): CPU-only torch wheel,
+      # transformers, pyyaml, python-dotenv, pytest. lm-eval/peft/etc. are not installed here.
+      - name: Install CPU test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install transformers pyyaml python-dotenv pytest
+          pip install -e . --no-deps
+
+      - name: Run pytest
+        run: pytest -q
