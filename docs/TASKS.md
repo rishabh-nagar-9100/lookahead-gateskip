@@ -36,7 +36,7 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [x] P2-03 Dual-head router module (shared bottleneck, g_L, g_M with ΔAttn input), bias init — `lagate/routing/router.py`, `configs/router/lagate.yaml`, details D-17
 - [ ] P2-04 Soft-gated training forward pass
 - [ ] P2-05 Three-tier inference engine with exact Tier-3 K,V
-- [ ] P2-06 FLOP counter (per token, per tier) + router-overhead report
+- [x] P2-06 FLOP counter (per token, per tier) + router-overhead report — `lagate/engine/flops.py`, `scripts/flop_report.py`; router 0.57–0.64% of a dense layer (Llama), 0.56–0.63% (Qwen)
 - [ ] P2-07 Tests T-EQ, T-KV, T-T3, T-FLOP green on CPU and GPU
 - [ ] P2-08 Training smoke run (20 steps)
 - [ ] P2-09 GateSkip port `lagate/routing/gateskip.py` (vector gate on module input, L2 loss averaged over modules, percentile ramp, gate scaling at inference) with a hand-calculation unit test (D-16)

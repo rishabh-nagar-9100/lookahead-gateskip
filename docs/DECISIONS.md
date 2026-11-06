@@ -171,3 +171,5 @@ ARCHITECTURE.md does not pin these down; the choices below are what the code doe
 - **Linear maps:** W_1 and W_a have no bias. The heads w_L, w_M have the +5 bias; their weights start at N(0, 0.01), as GateSkip's gates (`configs/router/lagate.yaml`).
 - **EMA scan:** chunked closed form (chunk 64) carrying the state between chunks; equal to the recurrence to 1e-12 in fp64 (T-EMA). The chunk length is a numerics/speed setting, not a hyperparameter.
 - **The EMA is updated for every token at every layer, whatever its tier**, because RMSNorm(h_t) is always computed.
+- **Sparsity-loss costs (§4):** K,V run in every tier, so they are not in the loss. c_attn = Q,O + attention at the average training context length ((T+1)/2 for a sequence of length T); c_mlp = MLP. L_S is therefore the expected fraction of the *skippable* FLOPs that are used.
+- **FLOP accounting (§7)** counts the linear maps and attention matmuls only; it leaves out embeddings, LM head, norms, RoPE, element-wise ops, the EMA update and biases. The counter agrees with `torch.utils.flop_counter` on the tiny models (T-FLOP).

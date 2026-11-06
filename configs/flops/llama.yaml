@@ -1,0 +1,14 @@
+# P2-06 router-overhead / per-tier FLOP report for meta-llama/Llama-3.2-1B-Instruct (no weights needed).
+# Dims: ARCHITECTURE §1 table; checked against config.json by Dims.from_hf_config once the model is loaded.
+name: flops_llama
+model: meta-llama/Llama-3.2-1B-Instruct
+dims:
+  num_layers: 16
+  hidden: 2048
+  intermediate: 8192
+  n_heads: 32
+  n_kv_heads: 8
+  head_dim: 64
+  vocab: 128256
+router_config: configs/router/lagate.yaml
+context_lengths: [128, 512, 1024, 2048]   # n = tokens attended over
