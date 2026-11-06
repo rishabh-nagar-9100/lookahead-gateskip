@@ -23,7 +23,7 @@ Rules:
 
 | ID | Goal | Model | Notes | Status |
 |---|---|---|---|---|
-| E0 | Dense baseline | Llama-3.2-1B-Instruct | GSM8K first, then all four | todo |
+| E0 | Dense baseline | Llama-3.2-1B-Instruct (+ Qwen2.5-1.5B-Instruct) | GSM8K first, then all four. Llama gated access pending → 50-problem smoke run done on Qwen first | in progress |
 | E1 | GateSkip baseline at 0/15/25/35% | Llama-3.2-1B | official code, pinned commit | todo |
 | E2 | Error-token analysis | Llama-3.2-1B + GateSkip | tag tokens; compare skip rates on failed vs passed problems | todo |
 | E3 | Adjacent-token gate correlation | Llama-3.2-1B + GateSkip | Pearson r for lags 1–8, per layer | todo |
@@ -40,7 +40,7 @@ Rules:
 
 | Run ID | Exp | Date | Commit | Config | Seed | Budget | GSM8K | ARC-C | PIQA | MBPP | FLOP red. | Avg len | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| | | | | | | | | | | | | | |
+| E0-smoke-qwen (pending) | E0 | 2026-11-06 | (set at launch) | configs/eval/gsm8k_dense_qwen.yaml | 0 | 0% | | | | | 0% | | Qwen2.5-1.5B-Instruct, MPS fp16, --limit 50, gsm8k_cot_llama (D-08). Fallback: Llama access pending. Registered before launch. |
 
 ## Results summary (update after each experiment)
 
