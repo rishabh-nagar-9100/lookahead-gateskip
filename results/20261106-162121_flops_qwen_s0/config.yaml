@@ -1,0 +1,16 @@
+name: flops_qwen
+model: Qwen/Qwen2.5-1.5B-Instruct
+dims:
+  num_layers: 28
+  hidden: 1536
+  intermediate: 8960
+  n_heads: 12
+  n_kv_heads: 2
+  head_dim: 128
+  vocab: 151936
+router_config: configs/router/lagate.yaml
+context_lengths:
+- 128
+- 512
+- 1024
+- 2048

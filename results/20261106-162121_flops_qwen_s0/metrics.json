@@ -1,0 +1,66 @@
+{
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "bottleneck": 64,
+  "per_layer_per_token": [
+    {
+      "context_length": 128,
+      "dense_macs": 47185920,
+      "tier1_macs": 47481024,
+      "tier2_macs": 6193344,
+      "tier3_macs": 983104,
+      "tier1_frac_of_dense": 1.0062540690104167,
+      "tier2_frac_of_dense": 0.13125406901041667,
+      "tier3_frac_of_dense": 0.02083468967013889,
+      "router_macs": 295104,
+      "router_overhead_frac": 0.006254069010416667,
+      "mlp_share_of_dense": 0.875,
+      "gateskip_vector_gate_macs": 4718592,
+      "gateskip_vector_gate_frac": 0.1
+    },
+    {
+      "context_length": 512,
+      "dense_macs": 48365568,
+      "tier1_macs": 48660672,
+      "tier2_macs": 7372992,
+      "tier3_macs": 983104,
+      "tier1_frac_of_dense": 1.00610153074187,
+      "tier2_frac_of_dense": 0.15244299415650406,
+      "tier3_frac_of_dense": 0.020326526507452574,
+      "router_macs": 295104,
+      "router_overhead_frac": 0.006101530741869919,
+      "mlp_share_of_dense": 0.8536585365853658,
+      "gateskip_vector_gate_macs": 4718592,
+      "gateskip_vector_gate_frac": 0.0975609756097561
+    },
+    {
+      "context_length": 1024,
+      "dense_macs": 49938432,
+      "tier1_macs": 50233536,
+      "tier2_macs": 8945856,
+      "tier3_macs": 983104,
+      "tier1_frac_of_dense": 1.0059093565452757,
+      "tier2_frac_of_dense": 0.1791377030019685,
+      "tier3_frac_of_dense": 0.01968632094816273,
+      "router_macs": 295104,
+      "router_overhead_frac": 0.0059093565452755905,
+      "mlp_share_of_dense": 0.8267716535433071,
+      "gateskip_vector_gate_macs": 4718592,
+      "gateskip_vector_gate_frac": 0.09448818897637795
+    },
+    {
+      "context_length": 2048,
+      "dense_macs": 53084160,
+      "tier1_macs": 53379264,
+      "tier2_macs": 12091584,
+      "tier3_macs": 983104,
+      "tier1_frac_of_dense": 1.0055591724537036,
+      "tier2_frac_of_dense": 0.22778139467592592,
+      "tier3_frac_of_dense": 0.018519724151234568,
+      "router_macs": 295104,
+      "router_overhead_frac": 0.005559172453703703,
+      "mlp_share_of_dense": 0.7777777777777778,
+      "gateskip_vector_gate_macs": 4718592,
+      "gateskip_vector_gate_frac": 0.08888888888888889
+    }
+  ]
+}
