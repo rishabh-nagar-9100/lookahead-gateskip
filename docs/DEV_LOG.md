@@ -14,6 +14,22 @@ Newest entry first. One entry per work session. Keep it short and factual.
 
 ---
 
+### 2026-11-06 · Protocol-B check · P0-10, P0-11
+**Done:**
+- Added the custom lm-eval task `configs/eval/tasks/gsm8k_chat_zs.yaml` (bare question as the user turn, stock gsm8k scoring) and configs `gsm8k_chat_dense_{llama,qwen}.yaml`.
+- `eval_dense.py` now supports `include_path` and `system_instruction`; the protocol test covers D-15 (10 tests pass).
+- Previewed the rendered prompt, registered the run, and ran it on 50 problems (Qwen; Llama still gated).
+**Results / numbers:** `20261106-063044_gsm8k_chat_dense_qwen_s0`: 26.0% strict / 56.0% flexible; 40% of outputs contain `#### N`; 2% hit the 512 cap; avg 219 tokens; 7:04 generation.
+
+| Same 50 problems | Strict | Flexible | `####` | Hit cap | Avg tok |
+|---|---|---|---|---|---|
+| D-08 8-shot chat | 62.0 | 62.0 | n/a ("The final answer is") | 0% | 143 |
+| D-11 0-shot plain | 0.0 | 16.0 | 0% | 40% | 352 |
+| B 0-shot chat + instruction | 26.0 | 56.0 | 40% | 2% | 219 |
+
+**Problems:** B fails 2 of 3 criteria. The untrained model ignores the `####` instruction and uses `\boxed{N}`, bold or "Therefore … $18". Flexible-extract is also fragile here: on doc 2 it extracted `$.` although the answer was a boxed `70000`. The decision is not recorded yet; Rishabh to choose a fallback after seeing the failing outputs.
+**Next:** decide P0-11, then update the decision, configs and TASKS accordingly.
+
 ### 2026-11-06 · D-11 eval configs + smoke run · P0-10
 **Done:**
 - Added `configs/eval/gsm8k_zs_dense_{llama,qwen}.yaml` (D-11) and tagged every eval config with `protocol: D-08|D-11`.

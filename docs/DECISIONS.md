@@ -103,3 +103,4 @@ Format: ID · date · decision · alternatives considered · reason · status (a
   - Apply the chat template under D-11 too. That changes GateSkip's format, so trained models would then be evaluated on a format they weren't trained on.
   - Add `####` few-shot exemplars. That mixes in-context learning into a 0-shot protocol.
 - **Status:** proposed; Rishabh to confirm. Until then, nothing is reported as "dense" under D-11.
+- **Update (2026-11-06):** the alternative "chat format everywhere" (protocol B) was tested on the untrained Qwen model (run `20261106-063044_gsm8k_chat_dense_qwen_s0`) and **failed** the agreed criteria: 40% `#### N` outputs (needed ≥ 90%) and a 30-point strict/flexible gap (needed ≤ 4). The 2% cap rate passed. It is not adopted. The choice between A + D and other fallbacks is pending.
