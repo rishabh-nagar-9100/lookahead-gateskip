@@ -14,6 +14,15 @@ Newest entry first. One entry per work session. Keep it short and factual.
 
 ---
 
+### 2026-11-07 · GitHub push + CI · P0-03, P0-05
+**Done:** remote `origin` = https://github.com/rishabh-nagar-9100/lookahead-gateskip.git; `main` pushed with the stored macOS keychain credentials (no token entered or written anywhere). Before pushing, checked that no `.env`, checkpoints, raw generations or token-like strings appear anywhere in the history.
+**Results / numbers:**
+- First Actions run (42272366671, `af8074a`): **failed** in `pytest`. The LoRA test imports `peft`, which CI did not install; reproduced locally with peft blocked (1 failed, 137 passed).
+- Fix: CI installs peft and pins all test deps to `requirements.lock.txt` (D-10 update).
+- Second run (42272751382, `dc0c6b8`): **passed** (job ≈ 60 s).
+**Problems:** job logs need authentication (API 403), so the CI test count isn't visible from here. The three official-GateSkip cross-check tests skip in CI, because the clone is git-ignored.
+**Next:** Llama access (P0-01), GPU (P0-02), P3-06 chat data.
+
 ### 2026-11-06 · D-21 pure greedy · E0 re-run
 **Done:** D-21 active. `repetition_penalty: 1.0` added to all six eval configs, a protocol test enforces it, and the three earlier Qwen runs are flagged as penalty-1.1 in EXPERIMENTS.md. Re-ran the Qwen 50-problem D-08 smoke.
 **Results / numbers:** `20261106-182046_gsm8k_dense_qwen_s0`:
