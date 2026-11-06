@@ -75,3 +75,38 @@ def test_eval_configs_follow_protocol(path):
     assert ev["num_fewshot"] == 8
     assert ev["gen_kwargs"]["do_sample"] is False
     assert ev["gen_kwargs"]["max_gen_toks"] == 512
+
+
+def _git(repo, *args):
+    import subprocess
+
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+        cwd=repo, check=True, capture_output=True,
+    )
+
+
+def test_git_dirty_ignores_only_untracked_results(tmp_path):
+    from lagate.utils import git_info
+
+    _git(tmp_path, "init", "-q")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "a.py").write_text("x = 1\n")
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "-q", "-m", "init")
+    info = git_info(tmp_path)
+    assert info["commit"] and info["dirty"] is False
+
+    # A run's own untracked output under results/ does not make the tree dirty.
+    (tmp_path / "results" / "run1").mkdir(parents=True)
+    (tmp_path / "results" / "run1" / "meta.json").write_text("{}")
+    assert git_info(tmp_path)["dirty"] is False
+
+    # An untracked source file does.
+    (tmp_path / "src" / "new.py").write_text("y = 2\n")
+    assert git_info(tmp_path)["dirty"] is True
+    (tmp_path / "src" / "new.py").unlink()
+
+    # So does a modified tracked file.
+    (tmp_path / "src" / "a.py").write_text("x = 2\n")
+    assert git_info(tmp_path)["dirty"] is True

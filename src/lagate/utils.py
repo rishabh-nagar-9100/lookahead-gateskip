@@ -61,8 +61,14 @@ def set_seed(seed: int, deterministic: bool = False) -> None:
         pass
 
 
-def git_info(repo: Path = REPO_ROOT) -> dict[str, Any]:
-    """Return the current commit hash and whether the working tree has uncommitted changes."""
+def git_info(
+    repo: Path = REPO_ROOT, ignore_untracked: tuple[str, ...] = ("results/",)
+) -> dict[str, Any]:
+    """Return the current commit hash and whether the working tree has uncommitted changes.
+
+    Any tracked modification or untracked file marks the tree dirty, except untracked paths
+    under ``ignore_untracked`` (by default results/, where a run writes its own outputs).
+    """
 
     def _git(*args: str) -> str | None:
         try:
@@ -74,9 +80,15 @@ def git_info(repo: Path = REPO_ROOT) -> dict[str, Any]:
             return None
 
     commit = _git("rev-parse", "HEAD")
-    # Only tracked changes count as dirty; untracked files (e.g. the run's own results dir) do not.
-    status = _git("status", "--porcelain", "--untracked-files=no")
-    return {"commit": commit, "dirty": bool(status) if status is not None else None}
+    status = _git("status", "--porcelain")  # paths are relative to the repo root
+    if status is None:
+        return {"commit": commit, "dirty": None}
+    changes = [
+        line
+        for line in status.splitlines()
+        if not (line.startswith("?? ") and line[3:].strip('"').startswith(ignore_untracked))
+    ]
+    return {"commit": commit, "dirty": bool(changes)}
 
 
 def package_versions(packages: tuple[str, ...] = TRACKED_PACKAGES) -> dict[str, str | None]:
