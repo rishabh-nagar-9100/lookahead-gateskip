@@ -1,0 +1,35 @@
+name: diag_gateskip_llama_300
+device: cpu
+model:
+  tiny:
+    arch: llama
+finetune:
+  mode: full
+method:
+  name: gateskip
+  router_config: configs/router/gateskip.yaml
+  sparsity_weight: 1.0
+  router_overrides:
+    num_increasing_steps: 300
+data:
+  source: synthetic
+  batch_size: 8
+  min_len: 12
+  max_len: 32
+train:
+  steps: 300
+  lr: 0.003
+  router_lr: 0.01
+  warmup_steps: 2
+  max_grad_norm: 1.0
+  log_every: 50
+smoke_eval:
+  engine_config: configs/engine/lagate.yaml
+  calibration_batches: 4
+  skip_fracs:
+  - 0.15
+  - 0.35
+  n_sequences: 8
+  prompt_len: 8
+  new_tokens: 8
+save_checkpoint: false
