@@ -14,6 +14,25 @@ Newest entry first. One entry per work session. Keep it short and factual.
 
 ---
 
+### 2026-11-06 · Engine speed · P5-05
+**Done:**
+- Engine hot path rewritten:
+  - preallocated KV cache, written in place and doubling when full;
+  - FLOP/tier stats kept on the device and computed when `stats` is read (no per-token `.tolist()`);
+  - a dense fast path with no decisions or gathers;
+  - decode attention without host syncs (`all_visible`);
+  - one `bool()` per decision at decode instead of `nonzero`;
+  - EMA updated only for policies that use it;
+  - last-position logits in `generate`.
+- New tests: cache growth past capacity (fp64 T-KV), fast path = general path, last-only logits. 138 passed.
+- `real_model_checks.py` also times the general decision path and our router with no skipping.
+**Results / numbers** (run `20261106-180357_realcheck_qwen_mps_s0`, Qwen2.5-1.5B fp16, MPS):
+- T-EQ still 0.0; pure-greedy match 3/3.
+- **Dense engine 40.8 vs HF 39.0 ms/token = 1.05×** (was 2.38×).
+- Decision path, every token Tier 1: 61.6 (1.58×). Our router, no skipping: 65.5 (1.68×).
+**Problems:** routing host syncs (≈ 0.37 ms each, 56 per token) cost more than the router itself. On MPS, skipping only pays off at high skip rates (R4). torch.compile was not tried: not needed for the dense target, and the sync cost is not something it removes.
+**Next:** P5-06 (proposed) after CUDA numbers; D-21 decision; push once the URL arrives.
+
 ### 2026-11-06 · Gaps, gate-cost check, real-model checks on MPS · P0-07, P2-07, P5-01
 **Done:**
 - G1–G6 written into PAPER_PLAN.md (Research gaps) and linked from DECISIONS (D-19, D-20). FlexiDepth / D-LLM marked verified (Rishabh checked the papers).

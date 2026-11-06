@@ -1,0 +1,262 @@
+{
+  "dims": {
+    "config_json": {
+      "num_layers": 28,
+      "hidden": 1536,
+      "intermediate": 8960,
+      "n_heads": 12,
+      "n_kv_heads": 2,
+      "head_dim": 128,
+      "vocab": 151936
+    },
+    "ours": {
+      "num_layers": 28,
+      "hidden": 1536,
+      "intermediate": 8960,
+      "n_heads": 12,
+      "n_kv_heads": 2,
+      "head_dim": 128,
+      "vocab": 151936
+    },
+    "match": true
+  },
+  "prompt_tokens": [
+    117,
+    78,
+    109
+  ],
+  "teq": {
+    "float32": {
+      "per_prompt": [
+        {
+          "prompt_tokens": 117,
+          "max_abs_diff_adapter": 0.0,
+          "max_abs_diff_engine": 0.0,
+          "max_abs_logit": 36.08085632324219,
+          "argmax_agree_frac": 1.0
+        },
+        {
+          "prompt_tokens": 78,
+          "max_abs_diff_adapter": 0.0,
+          "max_abs_diff_engine": 0.0,
+          "max_abs_logit": 33.86460876464844,
+          "argmax_agree_frac": 1.0
+        },
+        {
+          "prompt_tokens": 109,
+          "max_abs_diff_adapter": 0.0,
+          "max_abs_diff_engine": 0.0,
+          "max_abs_logit": 33.37116241455078,
+          "argmax_agree_frac": 1.0
+        }
+      ],
+      "max_abs_diff": 0.0
+    },
+    "float16": {
+      "per_prompt": [
+        {
+          "prompt_tokens": 117,
+          "max_abs_diff_adapter": 0.0,
+          "max_abs_diff_engine": 0.0,
+          "max_abs_logit": 36.0625,
+          "argmax_agree_frac": 1.0
+        },
+        {
+          "prompt_tokens": 78,
+          "max_abs_diff_adapter": 0.0,
+          "max_abs_diff_engine": 0.0,
+          "max_abs_logit": 33.8125,
+          "argmax_agree_frac": 1.0
+        },
+        {
+          "prompt_tokens": 109,
+          "max_abs_diff_adapter": 0.0,
+          "max_abs_diff_engine": 0.0,
+          "max_abs_logit": 33.375,
+          "argmax_agree_frac": 1.0
+        }
+      ],
+      "max_abs_diff": 0.0
+    }
+  },
+  "latency": {
+    "new_tokens": 64,
+    "per_prompt": [
+      {
+        "prompt_tokens": 117,
+        "hf_sdpa": {
+          "median_ms_per_token": 39.01503971883358,
+          "runs_ms_per_token": [
+            38.9828756561883,
+            39.01503971883358,
+            39.043968749979285,
+            38.997784515572675,
+            39.02506575002462
+          ]
+        },
+        "engine_dense": {
+          "median_ms_per_token": 40.92517317189959,
+          "runs_ms_per_token": [
+            40.987800781294936,
+            40.86148371879972,
+            40.86419010945974,
+            40.92517317189959,
+            41.04262239070522
+          ]
+        },
+        "engine_general_tier1": {
+          "median_ms_per_token": 61.65153060931061,
+          "runs_ms_per_token": [
+            61.57047720319042,
+            61.488429031214764,
+            61.69522460936605,
+            61.65153060931061,
+            61.675180343740976
+          ]
+        },
+        "engine_lagate_noskip": {
+          "median_ms_per_token": 65.51735610935339,
+          "runs_ms_per_token": [
+            66.6998945313253,
+            65.45275195310296,
+            65.79764778132358,
+            65.39612629694602,
+            65.51735610935339
+          ]
+        }
+      },
+      {
+        "prompt_tokens": 78,
+        "hf_sdpa": {
+          "median_ms_per_token": 38.022992828132374,
+          "runs_ms_per_token": [
+            38.022992828132374,
+            38.25185871880876,
+            38.43049804686416,
+            37.97953256241726,
+            37.90886393744586
+          ]
+        },
+        "engine_dense": {
+          "median_ms_per_token": 40.30793359379459,
+          "runs_ms_per_token": [
+            40.31434114062904,
+            40.30793359379459,
+            40.2237298125101,
+            40.288569015615394,
+            41.73858659385132
+          ]
+        },
+        "engine_general_tier1": {
+          "median_ms_per_token": 61.640721343678706,
+          "runs_ms_per_token": [
+            61.181516281294535,
+            61.75899545314678,
+            61.46345182810364,
+            61.737736328154824,
+            61.640721343678706
+          ]
+        },
+        "engine_lagate_noskip": {
+          "median_ms_per_token": 65.54388020310853,
+          "runs_ms_per_token": [
+            64.9326542968538,
+            65.54388020310853,
+            67.34158268750434,
+            65.73109310932068,
+            65.45069921867253
+          ]
+        }
+      },
+      {
+        "prompt_tokens": 109,
+        "hf_sdpa": {
+          "median_ms_per_token": 39.14329492192792,
+          "runs_ms_per_token": [
+            39.20239453123031,
+            39.20603385927279,
+            39.1174518281332,
+            39.14329492192792,
+            39.03186718753204
+          ]
+        },
+        "engine_dense": {
+          "median_ms_per_token": 40.80343228122274,
+          "runs_ms_per_token": [
+            40.92157356251391,
+            40.66846418743353,
+            40.88738217194532,
+            40.641145187464645,
+            40.80343228122274
+          ]
+        },
+        "engine_general_tier1": {
+          "median_ms_per_token": 61.386667328065414,
+          "runs_ms_per_token": [
+            173.56760937502713,
+            60.95817187497232,
+            61.267032562454915,
+            61.386667328065414,
+            61.74167056258284
+          ]
+        },
+        "engine_lagate_noskip": {
+          "median_ms_per_token": 66.20709635933508,
+          "runs_ms_per_token": [
+            65.45811068747298,
+            65.31723957812119,
+            68.29109504690223,
+            67.13270182808628,
+            66.20709635933508
+          ]
+        }
+      }
+    ],
+    "ratio_engine_dense_over_hf_sdpa": 1.0458385426563044,
+    "ratio_engine_general_tier1_over_hf_sdpa": 1.5799220451369456,
+    "ratio_engine_lagate_noskip_over_hf_sdpa": 1.6799644617936602
+  },
+  "generate_match": {
+    "hf_generation_config": {
+      "do_sample": true,
+      "temperature": 0.7,
+      "top_k": 20,
+      "top_p": 0.8,
+      "repetition_penalty": 1.1
+    },
+    "hf_default_config": [
+      {
+        "identical": false,
+        "first_divergence": 9,
+        "n_tokens": 64
+      },
+      {
+        "identical": false,
+        "first_divergence": 2,
+        "n_tokens": 64
+      },
+      {
+        "identical": false,
+        "first_divergence": 2,
+        "n_tokens": 64
+      }
+    ],
+    "hf_pure_greedy": [
+      {
+        "identical": true,
+        "first_divergence": null,
+        "n_tokens": 64
+      },
+      {
+        "identical": true,
+        "first_divergence": null,
+        "n_tokens": 64
+      },
+      {
+        "identical": true,
+        "first_divergence": null,
+        "n_tokens": 64
+      }
+    ]
+  }
+}

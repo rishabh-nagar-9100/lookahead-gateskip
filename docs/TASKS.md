@@ -65,8 +65,9 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [ ] P4-06 D-12(c): our GateSkip port vs official code (base Llama-3.2-1B, native format, 0% and 15%), on the GPU (D-16)
 
 ## Phase 5 – Latency
-- [ ] P5-01 Batch-size-1 decode harness (warm-up, CUDA sync, median of N runs) — first pass in `scripts/real_model_checks.py` (MPS): dense engine 2.38× slower than HF (83.1 vs 34.9 ms/token)
-- [ ] P5-05 *(proposed, before Phase 3)* Engine speed: deferred on-device FLOP accounting, dense/no-skip fast path, static preallocated KV cache + cached RoPE/positions, last-position logits only; then torch.compile (MPS prototype) / CUDA graphs on GPU. Target ≤ 1.3× HF in dense mode
+- [ ] P5-01 Batch-size-1 decode harness (warm-up, CUDA sync, median of N runs) — first pass in `scripts/real_model_checks.py` (MPS, HF vs engine variants, warm-up + median of 5); CUDA sync and E11 harness still to do
+- [x] P5-05 Engine speed (dense mode): preallocated KV cache, lazy on-device FLOP stats, dense fast path, sync-free decode attention, EMA only when used, last-position logits. **Dense engine 1.05× HF on MPS** (40.8 vs 39.0 ms/token, was 2.38×); torch.compile not needed for this target
+- [ ] P5-06 *(proposed)* Cut routing host syncs (decision path costs ≈ 21 ms/token on MPS = 56 syncs/token, 1.58× HF with no skipping). Options in RISKS R4; measure on CUDA first (P0-02), where a sync is far cheaper
 - [ ] P5-02 E11 CUDA latency for all methods; torch.compile / CUDA graphs variants
 - [ ] P5-03 E11 Apple MPS latency
 - [ ] P5-04 Output-length and time-per-problem analysis

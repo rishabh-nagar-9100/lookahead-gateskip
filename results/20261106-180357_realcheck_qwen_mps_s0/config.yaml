@@ -1,0 +1,30 @@
+name: realcheck_qwen_mps
+model: Qwen/Qwen2.5-1.5B-Instruct
+expected_dims_config: configs/flops/qwen.yaml
+device: mps
+teq_dtypes:
+- float32
+- float16
+gen_dtype: float16
+prompts:
+  dataset: openai/gsm8k
+  subset: main
+  split: test
+  doc_ids:
+  - 0
+  - 1
+  - 2
+  chat_config: configs/eval/gsm8k_chat_dense_qwen.yaml
+generate:
+  max_new_tokens: 64
+  hf_overrides:
+    repetition_penalty: 1.0
+latency:
+  warmup_runs: 1
+  timed_runs: 5
+  engine_variants:
+  - dense
+  - general_tier1
+  - lagate_noskip
+  hf_attn_implementations:
+  - sdpa
