@@ -71,6 +71,9 @@ GSM8K_PROTOCOLS = {
              "fewshot_as_multiturn": False, "primary_metric": "exact_match,strict-match"},
     "D-08": {"tasks": ["gsm8k_cot_llama"], "num_fewshot": 8, "apply_chat_template": True,
              "fewshot_as_multiturn": True, "primary_metric": "exact_match,flexible-extract"},
+    "D-15": {"tasks": ["gsm8k_chat_zs"], "num_fewshot": 0, "apply_chat_template": True,
+             "fewshot_as_multiturn": False, "primary_metric": "exact_match,strict-match",
+             "include_path": "configs/eval/tasks"},
 }
 
 
@@ -86,6 +89,11 @@ def test_eval_configs_follow_protocol(path):
         assert ev[key] == expected, f"{path.name}: eval.{key}={ev[key]!r}, expected {expected!r}"
     assert ev["gen_kwargs"]["do_sample"] is False
     assert ev["gen_kwargs"]["max_gen_toks"] == 512
+    if cfg["protocol"] == "D-15":
+        assert "####" in ev["system_instruction"]
+        for task in ev["tasks"]:  # custom task YAML must exist and declare the same task name
+            task_cfg = yaml.safe_load((REPO_ROOT / ev["include_path"] / f"{task}.yaml").read_text())
+            assert task_cfg["task"] == task and task_cfg["num_fewshot"] == 0
 
 
 def _git(repo, *args):

@@ -97,7 +97,12 @@ def main() -> None:
     print(f"[eval_dense] run dir: {run_dir}  device={device} dtype={dtype} limit={eval_cfg['limit']}")
 
     import lm_eval
+    from lm_eval.tasks import TaskManager
     from transformers import AutoTokenizer
+
+    # Optional: our own task YAMLs (e.g. configs/eval/tasks/gsm8k_chat_zs.yaml), relative to the repo root.
+    include_path = eval_cfg.get("include_path")
+    task_manager = TaskManager(include_path=str(REPO_ROOT / include_path)) if include_path else None
 
     t0 = time.perf_counter()
     out = lm_eval.simple_evaluate(
@@ -111,6 +116,8 @@ def main() -> None:
         gen_kwargs=gen_kwargs_to_str(eval_cfg["gen_kwargs"]),
         apply_chat_template=eval_cfg["apply_chat_template"],
         fewshot_as_multiturn=eval_cfg["fewshot_as_multiturn"],
+        system_instruction=eval_cfg.get("system_instruction"),
+        task_manager=task_manager,
         log_samples=eval_cfg["log_samples"],
         random_seed=args.seed,
         numpy_random_seed=args.seed,
