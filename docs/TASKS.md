@@ -35,7 +35,7 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [x] P2-02 EMA memory module (prefill scan + decode recurrence) with unit tests — `lagate/routing/ema.py`, T-EMA in `tests/test_ema.py`
 - [x] P2-03 Dual-head router module (shared bottleneck, g_L, g_M with ΔAttn input), bias init — `lagate/routing/router.py`, `configs/router/lagate.yaml`, details D-17
 - [x] P2-04 Soft-gated training forward pass — `lagate/models/gated.py` (LookaheadGatedModel, CE + λ·L_S, right padding); T-EQ in `tests/test_gated_forward.py`
-- [ ] P2-05 Three-tier inference engine with exact Tier-3 K,V
+- [x] P2-05 Three-tier inference engine with exact Tier-3 K,V — `lagate/engine/tiered.py` (bs=1, own KV+EMA cache, policies: Lagate/Dense/FixedTier), `configs/engine/lagate.yaml`; T-KV, T-T3 in `tests/test_engine.py`
 - [x] P2-06 FLOP counter (per token, per tier) + router-overhead report — `lagate/engine/flops.py`, `scripts/flop_report.py`; router 0.57–0.64% of a dense layer (Llama), 0.56–0.63% (Qwen)
 - [ ] P2-07 Tests T-EQ, T-KV, T-T3, T-FLOP green on CPU and GPU
 - [ ] P2-08 Training smoke run (20 steps)
