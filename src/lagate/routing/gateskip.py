@@ -197,6 +197,8 @@ class GateSkipPolicy:
     (engine tier 0)."""
 
     needs_mlp_input = True
+    uses_ema = False
+    all_dense = False
 
     def __init__(self, gates: nn.ModuleList, tau: dict[str, list[float]]):
         self.gates = gates

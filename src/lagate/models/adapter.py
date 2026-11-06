@@ -103,17 +103,19 @@ class DecoderAdapter(nn.Module):
         q_pos: torch.Tensor,
         k_pos: torch.Tensor,
         key_valid: torch.Tensor | None = None,
+        all_visible: bool = False,
     ) -> torch.Tensor:
         """Causal attention + O-proj. q: (B, nh, Tq, d); k, v: (B, kvh, Tk, d); positions 1-D.
 
-        ``key_valid`` (B, Tk) bool masks padded keys. Returns the attention sub-layer output (B, Tq, H).
+        ``key_valid`` (B, Tk) bool masks padded keys. ``all_visible``: every key is visible to every
+        query (a decode step), so no mask is built. Returns the attention sub-layer output (B, Tq, H).
         """
         # PyTorch SDPA (as HF's default "sdpa" attention). The eager q·kᵀ matmul overflows fp16 on
         # Qwen2.5 (scores reach inf at layer 0; HF's own eager path gives NaN there too), and SDPA
         # handles GQA without materialising repeated K,V.
         Tq, Tk = q.shape[2], k.shape[2]
-        if key_valid is None and Tq == 1 and int(q_pos[0]) >= int(k_pos[-1]):
-            mask = None                                   # decode step: every cached key is visible
+        if all_visible and key_valid is None:
+            mask = None  # caller guarantees every key is visible (decode step); avoids a host sync
         else:
             mask = (k_pos[None, :] <= q_pos[:, None])[None, None]  # (1, 1, Tq, Tk)
             if key_valid is not None:

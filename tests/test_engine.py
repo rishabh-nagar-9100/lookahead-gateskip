@@ -149,3 +149,49 @@ def test_engine_config_file_loads():
     from lagate.utils import REPO_ROOT, load_config
 
     assert EngineConfig.from_dict(load_config(REPO_ROOT / "configs/engine/lagate.yaml")) == EngineConfig()
+
+
+# ----- P5-05 fast paths ---------------------------------------------------------------------------
+def test_cache_growth_beyond_capacity_matches_recompute(tiny_model):
+    """Decode past the initial buffer (64 slots): growth keeps every entry (fp64, T-KV tolerance)."""
+    tiny_model.double()
+    T = 100
+    x = seq(T, seed=8)
+    tiers = random_tiers(T, tiny_model.config.num_hidden_layers, seed=9)
+    eng = TieredEngine(tiny_model, FixedTierPolicy(tiers))
+    cache = eng.new_cache()  # no capacity hint -> starts at 64, must grow
+    outs = [eng.forward_chunk(x[:, :5], cache)]
+    for t in range(5, T):
+        outs.append(eng.forward_chunk(x[:, t : t + 1], cache, phase="decode"))
+    full = TieredEngine(tiny_model, FixedTierPolicy(tiers)).forward_chunk(x, eng.new_cache())
+    torch.testing.assert_close(torch.cat(outs, 1), full, **TOL64)
+    assert cache.keys[0].shape[2] == T and cache._k[0].shape[2] >= T
+
+
+def test_dense_fast_path_equals_general_path(tiny_model):
+    L = tiny_model.config.num_hidden_layers
+    x = seq(P + N_NEW, seed=10)
+    fast = TieredEngine(tiny_model, DensePolicy())
+    slow = TieredEngine(tiny_model, FixedTierPolicy(torch.ones(P + N_NEW, L, dtype=torch.long)))
+    outs = {}
+    for name, eng in (("fast", fast), ("slow", slow)):
+        cache = eng.new_cache()
+        o = [eng.forward_chunk(x[:, :P], cache)]
+        for t in range(P, P + N_NEW):
+            o.append(eng.forward_chunk(x[:, t : t + 1], cache, phase="decode"))
+        outs[name] = torch.cat(o, 1)
+    torch.testing.assert_close(outs["fast"], outs["slow"], rtol=0, atol=1e-5)
+    assert fast.stats.tier_counts == slow.stats.tier_counts == {1: (P + N_NEW) * L, 2: 0, 3: 0, 0: 0}
+    router = slow.costs.router * (P + N_NEW) * L
+    assert slow.stats.macs - fast.stats.macs == router and fast.stats.compute_frac == 1.0
+
+
+def test_last_only_logits(tiny_model):
+    eng = TieredEngine(tiny_model, DensePolicy())
+    x = seq(P)
+    full = eng.forward_chunk(x, eng.new_cache())
+    last = eng.forward_chunk(x, eng.new_cache(), last_only=True)
+    assert last.shape[1] == 1
+    torch.testing.assert_close(last[:, 0], full[:, -1], rtol=0, atol=1e-5)  # 1-row vs T-row LM-head matmul
+    eng.reset_stats()
+    assert eng.stats.macs == 0

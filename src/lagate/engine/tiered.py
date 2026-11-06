@@ -51,28 +51,54 @@ class EngineConfig:
 
 
 # ----- cache -----------------------------------------------------------------------------------
-@dataclass
 class TieredCache:
-    """Per-layer K, V (1, kv_heads, n, d) and the EMA state μ (1, H) for one sequence."""
+    """Per-layer K, V and the EMA state μ (1, H) for one sequence.
 
-    num_layers: int
-    keys: list[torch.Tensor | None] = field(default_factory=list)
-    values: list[torch.Tensor | None] = field(default_factory=list)
-    mu: list[torch.Tensor | None] = field(default_factory=list)
-    length: int = 0
+    K,V live in preallocated buffers (1, kv_heads, capacity, d) written in place (P5-05), so a decode
+    step does not copy the whole cache as ``torch.cat`` would. Capacity doubles when exceeded;
+    ``generate`` sizes it to prompt + new tokens up front. ``keys`` / ``values`` give the filled views.
+    """
 
-    def __post_init__(self):
-        self.keys = [None] * self.num_layers
-        self.values = [None] * self.num_layers
-        self.mu = [None] * self.num_layers
+    def __init__(self, num_layers: int, capacity: int = 0):
+        self.num_layers = num_layers
+        self.capacity = capacity
+        self._k: list[torch.Tensor | None] = [None] * num_layers
+        self._v: list[torch.Tensor | None] = [None] * num_layers
+        self.filled = [0] * num_layers
+        self.mu: list[torch.Tensor | None] = [None] * num_layers
+        self.length = 0
+
+    def _ensure(self, layer: int, need: int, like: torch.Tensor) -> None:
+        buf = self._k[layer]
+        cap = 0 if buf is None else buf.shape[2]
+        if need <= cap:
+            return
+        new_cap = max(need, 2 * cap, self.capacity, 64)
+        shape = (like.shape[0], like.shape[1], new_cap, like.shape[3])
+        k = like.new_empty(shape)
+        v = like.new_empty(shape)
+        if buf is not None:
+            n = self.filled[layer]
+            k[:, :, :n] = self._k[layer][:, :, :n]
+            v[:, :, :n] = self._v[layer][:, :, :n]
+        self._k[layer], self._v[layer] = k, v
 
     def append(self, layer: int, k: torch.Tensor, v: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        if self.keys[layer] is None:
-            self.keys[layer], self.values[layer] = k, v
-        else:
-            self.keys[layer] = torch.cat([self.keys[layer], k], dim=2)
-            self.values[layer] = torch.cat([self.values[layer], v], dim=2)
-        return self.keys[layer], self.values[layer]
+        start = self.filled[layer]
+        end = start + k.shape[2]
+        self._ensure(layer, end, k)
+        self._k[layer][:, :, start:end] = k
+        self._v[layer][:, :, start:end] = v
+        self.filled[layer] = end
+        return self._k[layer][:, :, :end], self._v[layer][:, :, :end]
+
+    @property
+    def keys(self) -> list[torch.Tensor | None]:
+        return [None if b is None else b[:, :, :n] for b, n in zip(self._k, self.filled)]
+
+    @property
+    def values(self) -> list[torch.Tensor | None]:
+        return [None if b is None else b[:, :, :n] for b, n in zip(self._v, self.filled)]
 
 
 # ----- policies --------------------------------------------------------------------------------
@@ -98,6 +124,8 @@ class Policy(Protocol):
 
 class _NoScale:
     needs_mlp_input = False
+    uses_ema = False   # skip the EMA update when the policy never reads μ (P5-05)
+    all_dense = False  # True: every module always runs; the engine takes its fast path
 
     def attn_scale(self, ctx, rows):
         return None
@@ -107,6 +135,8 @@ class _NoScale:
 
 
 class DensePolicy(_NoScale):
+    all_dense = True
+
     def attn(self, layer, n, mu, pos):
         return torch.ones(n.shape[1], dtype=torch.bool, device=n.device), {}
 
@@ -139,6 +169,8 @@ class LagatePolicy:
     and g_M ≤ τ_M; Tier 3 if g_L ≤ τ_L. g_M is computed only for rows where attention ran."""
 
     needs_mlp_input = False
+    uses_ema = True
+    all_dense = False
 
     def __init__(self, routers: list[DualHeadRouter], tau_layer, tau_mlp):
         self.routers = routers
@@ -153,8 +185,9 @@ class LagatePolicy:
     def mlp(self, layer, ctx, attn_out, run_attn, mlp_in):
         T = run_attn.shape[0]
         g_m = torch.full((T,), float("nan"), dtype=attn_out.dtype, device=attn_out.device)
-        if run_attn.any():
-            g_m[run_attn] = self.routers[layer].mlp_gate(ctx["z"][run_attn], attn_out)
+        if attn_out.shape[0]:  # rows where attention ran (engine passes them in ctx["sel"]; no host sync)
+            sel = ctx["sel"]
+            g_m[sel] = self.routers[layer].mlp_gate(ctx["z"][sel], attn_out)
         ctx["g_mlp"] = g_m
         return run_attn & (g_m > self.tau_mlp[layer])
 
@@ -204,7 +237,9 @@ class TieredEngine:
         self.costs = LayerCosts(self.adapter.dims, self.router_cfg.bottleneck)
         self.layer_hooks: list[Callable[[dict], None]] = []  # P1-02
         self.record_hidden = False  # add each layer's input h to hook records (tests, analysis)
-        self.stats = EngineStats()
+        self._stats = EngineStats()
+        # Decisions stay on the device until ``stats`` is read (P5-05: no per-token host sync).
+        self._pending: list[tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None]] = []
 
     @classmethod
     def from_gated_model(cls, gated, tau_layer, tau_mlp, cfg: EngineConfig | None = None) -> "TieredEngine":
@@ -212,92 +247,156 @@ class TieredEngine:
         policy = LagatePolicy(list(gated.routers), tau_layer, tau_mlp)
         return cls(gated.hf_model, policy, cfg, gated.router_cfg)
 
-    def new_cache(self) -> TieredCache:
-        return TieredCache(self.adapter.dims.num_layers)
+    def new_cache(self, capacity: int = 0) -> TieredCache:
+        return TieredCache(self.adapter.dims.num_layers, capacity)
 
+    # ----- FLOP / tier statistics (computed lazily) ------------------------------------------------
+    @property
+    def stats(self) -> EngineStats:
+        if self._pending:
+            self._flush_stats()
+        return self._stats
+
+    def reset_stats(self) -> None:
+        self._pending.clear()
+        self._stats = EngineStats()
+
+    def _flush_stats(self) -> None:
+        c, s = self.costs, self._stats
+        r_on = float(self.policy.router_macs(c, True))
+        r_off = float(self.policy.router_macs(c, False))
+        for pos, run_attn, run_mlp in self._pending:
+            n = (pos.to("cpu", torch.float64) + 1)
+            a = torch.ones_like(n, dtype=torch.bool) if run_attn is None else run_attn.cpu()
+            m = torch.ones_like(n, dtype=torch.bool) if run_mlp is None else run_mlp.cpu()
+            attn = 2 * n * c.dims.n_heads * c.dims.head_dim
+            macs = c.kv + a * (c.qo + attn) + m * c.mlp + torch.where(a, r_on, r_off)
+            s.macs += float(macs.sum())
+            s.dense_macs += float((c.qo + c.kv + attn + c.mlp).sum())
+            tiers = tiers_from(a, m)
+            for tier in (0, 1, 2, 3):
+                s.tier_counts[tier] += int((tiers == tier).sum())
+        self._pending.clear()
+
+    # ----- forward --------------------------------------------------------------------------------
     @torch.no_grad()
-    def forward_chunk(self, input_ids: torch.Tensor, cache: TieredCache, phase: str = "prefill") -> torch.Tensor:
-        """Run ``input_ids`` (1, T) after the tokens already in ``cache``. Returns logits (1, T, V)."""
+    def forward_chunk(self, input_ids: torch.Tensor, cache: TieredCache, phase: str = "prefill",
+                      last_only: bool = False) -> torch.Tensor:
+        """Run ``input_ids`` (1, T) after the tokens already in ``cache``.
+
+        Returns logits (1, T, V), or (1, 1, V) for the last position if ``last_only``."""
         if input_ids.shape[0] != 1:
             raise ValueError("TieredEngine runs batch size 1")
         ad, pol = self.adapter, self.policy
         T = input_ids.shape[1]
         dev = input_ids.device
-        pos = torch.arange(cache.length, cache.length + T, device=dev)
+        start = cache.length
+        pos = torch.arange(start, start + T, device=dev)
+        k_pos = torch.arange(start + T, device=dev)  # positions of all cached keys after this chunk
         h = ad.embed(input_ids)
         cos, sin = ad.rope(h, pos)
-        ctx_lens = (pos + 1).tolist()
         alpha = self.router_cfg.alpha
+        dense = getattr(pol, "all_dense", False)
+        uses_ema = getattr(pol, "uses_ema", True)
+        decode = T == 1  # the single query sees every cached key: no mask, no row gather
 
         for layer in range(ad.dims.num_layers):
             h_in = h
             n = ad.input_norm(layer, h)
-            if T == 1:
-                mu = ema_step(n, None if cache.mu[layer] is None else cache.mu[layer][:, None], alpha)
-            else:
-                mu = ema_scan(n, alpha, mu0=cache.mu[layer], chunk_size=self.router_cfg.ema_chunk_size)
-            cache.mu[layer] = mu[:, -1]
+            mu = None
+            if uses_ema:
+                if decode:
+                    mu = ema_step(n, None if cache.mu[layer] is None else cache.mu[layer][:, None], alpha)
+                else:
+                    mu = ema_scan(n, alpha, mu0=cache.mu[layer], chunk_size=self.router_cfg.ema_chunk_size)
+                cache.mu[layer] = mu[:, -1]
 
             k, v = ad.kv(layer, n, cos, sin)  # exact K,V for every token, every tier
             k_all, v_all = cache.append(layer, k, v)
-            k_pos = torch.arange(k_all.shape[2], device=dev)
+
+            if dense:  # fast path: no decisions, no gathers, no host syncs
+                h = h + ad.attend(layer, ad.q(layer, n, cos, sin), k_all, v_all, pos, k_pos, all_visible=decode)
+                h = h + ad.mlp(layer, ad.post_norm(layer, h))
+                self._pending.append((pos, None, None))
+                if self.layer_hooks:
+                    ones = torch.ones(T, dtype=torch.bool, device=dev)
+                    self._run_hooks(layer, phase, pos, input_ids, {}, ones, ones, h_in, h)
+                continue
 
             run_attn, ctx = pol.attn(layer, n, mu, pos)
-            rows = run_attn.nonzero(as_tuple=True)[0]
+            sel = _selection(run_attn, decode)  # slice / index tensor / None (nothing runs)
+            ctx["sel"] = sel
             attn_rows = h.new_zeros(0, h.shape[-1])
-            h = h.clone()
-            if rows.numel():
-                q = ad.q(layer, n[:, rows], cos[:, rows], sin[:, rows])
-                attn_rows = ad.attend(layer, q, k_all, v_all, pos[rows], k_pos)[0]  # (R, H)
-                scale = pol.attn_scale(ctx, rows) if self.cfg.gate_scaling else None
-                h[0, rows] = h[0, rows] + (attn_rows if scale is None else scale * attn_rows)
+            if sel is not None:
+                q = ad.q(layer, n[:, sel], cos[:, sel], sin[:, sel])
+                attn_rows = ad.attend(layer, q, k_all, v_all, pos[sel], k_pos, all_visible=decode)[0]  # (R, H)
+                scale = pol.attn_scale(ctx, sel) if self.cfg.gate_scaling else None
+                upd = attn_rows if scale is None else scale * attn_rows
+                h = _add_rows(h, sel, upd)
 
             mlp_in = ad.post_norm(layer, h)[0] if pol.needs_mlp_input else None  # (T, H)
             run_mlp = pol.mlp(layer, ctx, attn_rows, run_attn, mlp_in)
-            mrows = run_mlp.nonzero(as_tuple=True)[0]
-            if mrows.numel():
-                x = mlp_in[mrows][None] if mlp_in is not None else ad.post_norm(layer, h[:, mrows])
+            msel = _selection(run_mlp, decode)
+            if msel is not None:
+                x = mlp_in[msel][None] if mlp_in is not None else ad.post_norm(layer, h[:, msel])
                 out = ad.mlp(layer, x)[0]
-                scale = pol.mlp_scale(ctx, mrows) if self.cfg.gate_scaling else None
-                h[0, mrows] = h[0, mrows] + (out if scale is None else scale * out)
+                scale = pol.mlp_scale(ctx, msel) if self.cfg.gate_scaling else None
+                h = _add_rows(h, msel, out if scale is None else scale * out)
 
-            self._account(run_attn, run_mlp, ctx_lens)
+            self._pending.append((pos, run_attn, run_mlp))
             if self.layer_hooks:
-                rec = {
-                    "layer": layer, "phase": phase, "positions": pos, "input_ids": input_ids[0],
-                    "g_layer": ctx.get("g_layer"), "g_mlp": ctx.get("g_mlp"),
-                    "run_attn": run_attn, "run_mlp": run_mlp, "tier": tiers_from(run_attn, run_mlp),
-                }
-                if self.record_hidden:
-                    rec["h_in"], rec["h_out"] = h_in[0], h[0]
-                for hook in self.layer_hooks:
-                    hook(rec)
+                self._run_hooks(layer, phase, pos, input_ids, ctx, run_attn, run_mlp, h_in, h)
 
         cache.length += T
-        return ad.final_logits(h)
+        return ad.final_logits(h[:, -1:] if last_only else h)
 
-    def _account(self, run_attn: torch.Tensor, run_mlp: torch.Tensor, ctx_lens: list[int]) -> None:
-        c, s = self.costs, self.stats
-        for a, m, n in zip(run_attn.tolist(), run_mlp.tolist(), ctx_lens):
-            s.macs += c.module_macs(a, m, n, router="none") + self.policy.router_macs(c, a)
-            s.dense_macs += c.dense(n)
-            s.tier_counts[1 if a and m else 2 if a else 0 if m else 3] += 1
+    def _run_hooks(self, layer, phase, pos, input_ids, ctx, run_attn, run_mlp, h_in, h_out) -> None:
+        rec = {
+            "layer": layer, "phase": phase, "positions": pos, "input_ids": input_ids[0],
+            "g_layer": ctx.get("g_layer"), "g_mlp": ctx.get("g_mlp"),
+            "run_attn": run_attn, "run_mlp": run_mlp, "tier": tiers_from(run_attn, run_mlp),
+        }
+        if self.record_hidden:
+            rec["h_in"], rec["h_out"] = h_in[0], h_out[0]
+        for hook in self.layer_hooks:
+            hook(rec)
 
     @torch.no_grad()
     def generate(
         self, prompt_ids: torch.Tensor, max_new_tokens: int, eos_token_ids: tuple[int, ...] = ()
     ) -> tuple[torch.Tensor, TieredCache]:
         """Greedy decoding. Returns (generated ids (1, n_new), cache)."""
-        cache = self.new_cache()
-        logits = self.forward_chunk(prompt_ids, cache, phase="prefill")
+        cache = self.new_cache(capacity=prompt_ids.shape[1] + max_new_tokens)
+        logits = self.forward_chunk(prompt_ids, cache, phase="prefill", last_only=True)
         out = []
         for i in range(max_new_tokens):
             nxt = logits[:, -1].argmax(-1, keepdim=True)
             out.append(nxt)
-            if nxt.item() in eos_token_ids or i == max_new_tokens - 1:
+            if i == max_new_tokens - 1 or (eos_token_ids and nxt.item() in eos_token_ids):
                 break  # the last token is never fed back (no wasted forward)
-            logits = self.forward_chunk(nxt, cache, phase="decode")
+            logits = self.forward_chunk(nxt, cache, phase="decode", last_only=True)
         return torch.cat(out, dim=1), cache
+
+
+def _selection(mask: torch.Tensor, decode: bool):
+    """Rows to run: ``slice(None)`` (all), an index tensor, or None (none).
+
+    A decode step has one row, so a single ``bool()`` (one host sync, needed for real skipping)
+    replaces ``nonzero``. Prefill uses ``nonzero``."""
+    if decode:
+        return slice(None) if bool(mask[0]) else None
+    rows = mask.nonzero(as_tuple=True)[0]
+    if rows.numel() == 0:
+        return None
+    return slice(None) if rows.numel() == mask.shape[0] else rows
+
+
+def _add_rows(h: torch.Tensor, sel, upd: torch.Tensor) -> torch.Tensor:
+    if isinstance(sel, slice):
+        return h + upd[None]
+    h = h.clone()
+    h[0, sel] = h[0, sel] + upd
+    return h
 
 
 def tiers_from(run_attn: torch.Tensor, run_mlp: torch.Tensor) -> torch.Tensor:
