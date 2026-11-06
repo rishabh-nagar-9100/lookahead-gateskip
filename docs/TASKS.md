@@ -18,6 +18,8 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [x] P0-10 Add D-11 eval configs (lm-eval `gsm8k`, 0-shot, no chat template, greedy, 512 tokens) and re-run the dense 50-problem smoke test with them. Configs `gsm8k_zs_dense_{llama,qwen}.yaml` + protocol test; run `20261106-060855_gsm8k_zs_dense_qwen_s0` gave 0.0% strict / 16.0% flexible (degenerate for an untrained Instruct model, D-14 proposed)
 - [x] P0-11 Choose the dense-reference protocol. D-15: chat-format training and evaluation, untrained models under D-08, Dense-FT reference. Protocol B was checked in run `20261106-063044_gsm8k_chat_dense_qwen_s0` (failed for the untrained model, which motivated D-15)
 - [x] P0-12 Robust secondary GSM8K extractor (`lagate.eval.answer`, D-15) handling `#### N`, `\boxed{N}`, `**N**`, `$N`, commas and "The (final) answer is N"; logged by `eval_dense.py` as `robust_extract`; tests include the five failing protocol-B outputs
+- [x] P0-14 GPU prep: `docs/GPU_RUNBOOK.md` (incl. cloud rental), `scripts/setup_gpu.sh` (clone, env from lock with CUDA torch, .env, pytest, full-scale T-EQ, 50-problem smoke), CUDA check configs, GPU-hour estimate `docs/GPU_BUDGET.md`. CUDA stages not yet run on a CUDA machine
+- [ ] P0-13 First GPU session: run `scripts/setup_gpu.sh all`, time 200 real training steps per method, then update `configs/budget/gpu_budget.yaml` and `docs/GPU_BUDGET.md` with measured numbers
 - [ ] P0-08 Confirm review dates with guide; fill them into PROJECT_PLAN.md
 - [ ] P0-09 Optional: Weights & Biases project for run tracking
 
@@ -69,6 +71,7 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [x] P5-05 Engine speed (dense mode): preallocated KV cache, lazy on-device FLOP stats, dense fast path, sync-free decode attention, EMA only when used, last-position logits. **Dense engine 1.05× HF on MPS** (40.8 vs 39.0 ms/token, was 2.38×); torch.compile not needed for this target
 - [~] P5-06 Cut routing host syncs. Done: `sync_mode: per_layer` (speculative decode attention, 1 sync per layer), with tests. Measured on MPS: 65.1 → 62.2 ms/token (dense 40.8), so it is not enough. Next: CUDA numbers (P0-02), then decide D-22 (lookahead decision mode, E12)
 - [ ] P5-07 *(if D-22 accepted)* Implement `decision: lookahead` in router, training forward and engine; tests (T-KV, shifted-input equivalence); E12
+- [ ] P5-08 *(proposed; biggest GPU-hour saving)* Batched masked accuracy evaluation for gated models: with fixed thresholds each token's decisions depend only on its own sequence, so batches can run every module and mask by the decisions. Must match the bs=1 engine (equivalence test: same decisions, greedy outputs equal up to float ties, same FLOP counts). bs=1 stays for latency (E11). Cuts the estimate ≈ 4× (GPU_BUDGET.md)
 - [ ] P5-02 E11 CUDA latency for all methods; torch.compile / CUDA graphs variants
 - [ ] P5-03 E11 Apple MPS latency
 - [ ] P5-04 Output-length and time-per-problem analysis

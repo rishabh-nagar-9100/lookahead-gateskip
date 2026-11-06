@@ -1,0 +1,187 @@
+name: gpu_budget
+gpus:
+  a100:
+    label: A100 80GB
+    train_speed: 1.0
+    decode_ms_per_token:
+      llama: 20
+      qwen: 28
+  rtx4090:
+    label: RTX 4090 24GB
+    train_speed: 0.55
+    decode_ms_per_token:
+      llama: 16
+      qwen: 22
+training:
+  hours_a100:
+    llama: 0.5
+    qwen: 0.75
+  method_overhead:
+    dense: 1.0
+    lagate: 1.05
+    gateskip: 1.15
+    baseline: 1.1
+    lookahead: 1.05
+  official_gateskip_hours_a100: 2.0
+  calibration_hours_a100: 0.05
+eval:
+  gsm8k:
+    items: 1319
+    gen_tokens: 200
+  mbpp:
+    items: 500
+    gen_tokens: 150
+  mc_hours_a100: 0.1
+  dev_items: 300
+  routing_overhead: 1.6
+  batched_speedup: 8
+latency_study_hours:
+  minimal: 6
+  full: 12
+plans:
+  minimal:
+    E0 dense suite (untrained, both models):
+      model: both
+      method: none
+      runs: 0
+      seeds: 1
+      suite_budgets: 1
+    E-DFT Dense-FT Llama (+ P3-08 check):
+      model: llama
+      method: dense
+      runs: 1
+      seeds: 1
+      suite_budgets: 1
+    E-DFT-Q Dense-FT Qwen:
+      model: qwen
+      method: dense
+      runs: 1
+      seeds: 1
+      gsm8k_budgets: 1
+    E1 GateSkip port Llama (3 budgets):
+      model: llama
+      method: gateskip
+      runs: 1
+      seeds: 1
+      gsm8k_budgets: 2
+      suite_budgets: 1
+    E1-official reproduction check (A100):
+      model: llama
+      method: official
+      runs: 1
+      seeds: 1
+    "P3-03 \u03BB sweep, 3 values":
+      model: llama
+      method: lagate
+      runs: 3
+      seeds: 1
+      dev: 1
+    E4 ours Llama, 3 budgets:
+      model: llama
+      method: lagate
+      runs: 1
+      seeds: 3
+      gsm8k_budgets: 2
+      suite_budgets: 1
+    E5 baselines FlexiDepth, D-LLM, FFN-skip:
+      model: llama
+      method: baseline
+      runs: 3
+      seeds: 1
+      gsm8k_budgets: 1
+    E5 random skip (no training):
+      model: llama
+      method: none
+      runs: 0
+      seeds: 1
+      gsm8k_budgets: 1
+    "E6\u2013E9 ablations (6 variants)":
+      model: llama
+      method: lagate
+      runs: 6
+      seeds: 1
+      dev: 1
+    E10 Qwen ours + GateSkip:
+      model: qwen
+      method: lagate
+      runs: 2
+      seeds: 1
+      gsm8k_budgets: 3
+    E12 lookahead mode:
+      model: llama
+      method: lookahead
+      runs: 1
+      seeds: 1
+      gsm8k_budgets: 3
+  full:
+    E0 dense suite (untrained, both models):
+      model: both
+      method: none
+      runs: 0
+      seeds: 1
+      suite_budgets: 1
+    E-DFT Dense-FT Llama:
+      model: llama
+      method: dense
+      runs: 1
+      seeds: 3
+      suite_budgets: 1
+    E-DFT-Q Dense-FT Qwen:
+      model: qwen
+      method: dense
+      runs: 1
+      seeds: 3
+      suite_budgets: 1
+    E1 GateSkip port Llama (3 budgets):
+      model: llama
+      method: gateskip
+      runs: 1
+      seeds: 3
+      suite_budgets: 3
+    E1-official reproduction check (A100):
+      model: llama
+      method: official
+      runs: 1
+      seeds: 3
+    "P3-03 \u03BB sweep, 4 values":
+      model: llama
+      method: lagate
+      runs: 4
+      seeds: 1
+      dev: 3
+    E4 ours Llama, 3 budgets:
+      model: llama
+      method: lagate
+      runs: 1
+      seeds: 3
+      suite_budgets: 3
+    E5 baselines FlexiDepth, D-LLM, FFN-skip:
+      model: llama
+      method: baseline
+      runs: 3
+      seeds: 3
+      suite_budgets: 3
+    E5 random skip (no training):
+      model: llama
+      method: none
+      runs: 0
+      seeds: 3
+      suite_budgets: 3
+    "E6\u2013E9 ablations (6 variants)":
+      model: llama
+      method: lagate
+      runs: 6
+      seeds: 3
+      gsm8k_budgets: 3
+    E10 Qwen ours + GateSkip:
+      model: qwen
+      method: lagate
+      runs: 2
+      seeds: 3
+      suite_budgets: 3
+    E12 lookahead mode:
+      model: llama
+      method: lookahead
+      runs: 1
+      seeds: 3
+      gsm8k_budgets: 3

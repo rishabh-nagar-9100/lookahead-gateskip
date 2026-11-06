@@ -14,6 +14,20 @@ Newest entry first. One entry per work session. Keep it short and factual.
 
 ---
 
+### 2026-11-07 · GPU prep, budget, sync modes · P0-14, P5-06, D-22
+**Done:**
+- `docs/GPU_RUNBOOK.md` and `scripts/setup_gpu.sh`: stages clone / env (uv, Python 3.11, CUDA torch at the lock pin, rest of the lock) / dotenv (never prints the token) / test / teq (full-scale real-model checks, Qwen then Llama if accessible) / smoke (50 problems). Cloud rental section. CUDA check configs `configs/checks/{qwen,llama}_cuda.yaml`. Script syntax-checked; dotenv + test stages run locally; CUDA stages untested.
+- GPU-hour estimator `scripts/gpu_budget.py` + `configs/budget/gpu_budget.yaml` → `docs/GPU_BUDGET.md` (minimal vs full plan, A100 vs 4090, batched vs bs=1 evals).
+- Engine `sync_mode: per_layer`: speculative decode attention, so only the MLP decision syncs. Same outputs and decisions as per_module (test); extra executed MACs counted.
+- D-22 lookahead decision mode (proposed) and E12; P5-07 (implement if accepted), P5-08 (batched masked eval, proposed).
+**Results / numbers:**
+- per_layer on MPS: 62.2 vs 65.1 ms/token (dense 40.8), only ≈ 3 ms saved. Any in-loop sync drains the queue (run `20261106-190740`).
+- Budget: minimal ≈ 28 A100-h with batched evals (101 h at bs=1); full ≈ 91 h (459 h). Training is only 15–38 h of it.
+**Problems:**
+- The "earlier message" with specs for the one-sync change, D-22 and E12 never arrived in this session. They were built from my own R4 proposals (b) and (d); waiting for Rishabh to confirm.
+- Budget training times are unmeasured (±2×).
+**Next:** P0-13 on the first GPU session; decide P5-08 and D-22 after CUDA numbers.
+
 ### 2026-11-07 · GitHub push + CI · P0-03, P0-05
 **Done:** remote `origin` = https://github.com/rishabh-nagar-9100/lookahead-gateskip.git; `main` pushed with the stored macOS keychain credentials (no token entered or written anywhere). Before pushing, checked that no `.env`, checkpoints, raw generations or token-like strings appear anywhere in the history.
 **Results / numbers:**

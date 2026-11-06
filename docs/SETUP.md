@@ -61,3 +61,7 @@ Recorded 2026-11-06 on the dev Mac (macOS 26 / Darwin 25.6, Apple Silicon, Pytho
 
 - Apple MPS has incomplete bf16/op coverage; use fp16 or fp32 there and record which.
 - Hugging Face `generate()` adds overhead; latency numbers come from our own decode loop (P5-01).
+
+## GPU machine (Linux + CUDA)
+
+See [GPU_RUNBOOK.md](GPU_RUNBOOK.md) and `scripts/setup_gpu.sh`: the same lock file with a CUDA torch build (`CUDA_TAG`, default cu128). Budget: [GPU_BUDGET.md](GPU_BUDGET.md).

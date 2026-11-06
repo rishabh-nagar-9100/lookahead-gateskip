@@ -1,0 +1,550 @@
+{
+  "minimal": {
+    "a100/batched_eval": {
+      "rows": [
+        {
+          "experiment": "E0 dense suite (untrained, both models)",
+          "train_h": 0.0,
+          "eval_h": 0.7646666666666667
+        },
+        {
+          "experiment": "E-DFT Dense-FT Llama (+ P3-08 check)",
+          "train_h": 0.5,
+          "eval_h": 0.3352777777777778
+        },
+        {
+          "experiment": "E-DFT-Q Dense-FT Qwen",
+          "train_h": 0.75,
+          "eval_h": 0.2564722222222222
+        },
+        {
+          "experiment": "E1 GateSkip port Llama (3 budgets)",
+          "train_h": 0.625,
+          "eval_h": 0.7016666666666667
+        },
+        {
+          "experiment": "E1-official reproduction check (A100)",
+          "train_h": 2.0,
+          "eval_h": 0.0
+        },
+        {
+          "experiment": "P3-03 \u03bb sweep, 3 values",
+          "train_h": 1.725,
+          "eval_h": 0.125
+        },
+        {
+          "experiment": "E4 ours Llama, 3 budgets",
+          "train_h": 1.725,
+          "eval_h": 2.105
+        },
+        {
+          "experiment": "E5 baselines FlexiDepth, D-LLM, FFN-skip",
+          "train_h": 1.8000000000000003,
+          "eval_h": 0.5495833333333333
+        },
+        {
+          "experiment": "E5 random skip (no training)",
+          "train_h": 0.0,
+          "eval_h": 0.18319444444444444
+        },
+        {
+          "experiment": "E6\u2013E9 ablations (6 variants)",
+          "train_h": 3.45,
+          "eval_h": 0.25
+        },
+        {
+          "experiment": "E10 Qwen ours + GateSkip",
+          "train_h": 1.6750000000000003,
+          "eval_h": 1.5388333333333333
+        },
+        {
+          "experiment": "E12 lookahead mode",
+          "train_h": 0.5750000000000001,
+          "eval_h": 0.5495833333333333
+        }
+      ],
+      "train_h": 14.825,
+      "eval_h": 7.359277777777778,
+      "latency_h": 6,
+      "total_h": 28.184277777777776
+    },
+    "a100/bs1_eval": {
+      "rows": [
+        {
+          "experiment": "E0 dense suite (untrained, both models)",
+          "train_h": 0.0,
+          "eval_h": 4.717333333333333
+        },
+        {
+          "experiment": "E-DFT Dense-FT Llama (+ P3-08 check)",
+          "train_h": 0.5,
+          "eval_h": 1.9822222222222223
+        },
+        {
+          "experiment": "E-DFT-Q Dense-FT Qwen",
+          "train_h": 0.75,
+          "eval_h": 2.0517777777777777
+        },
+        {
+          "experiment": "E1 GateSkip port Llama (3 budgets)",
+          "train_h": 0.625,
+          "eval_h": 7.801333333333333
+        },
+        {
+          "experiment": "E1-official reproduction check (A100)",
+          "train_h": 2.0,
+          "eval_h": 0.0
+        },
+        {
+          "experiment": "P3-03 \u03bb sweep, 3 values",
+          "train_h": 1.725,
+          "eval_h": 1.6
+        },
+        {
+          "experiment": "E4 ours Llama, 3 budgets",
+          "train_h": 1.725,
+          "eval_h": 23.404
+        },
+        {
+          "experiment": "E5 baselines FlexiDepth, D-LLM, FFN-skip",
+          "train_h": 1.8000000000000003,
+          "eval_h": 7.034666666666666
+        },
+        {
+          "experiment": "E5 random skip (no training)",
+          "train_h": 0.0,
+          "eval_h": 1.4655555555555555
+        },
+        {
+          "experiment": "E6\u2013E9 ablations (6 variants)",
+          "train_h": 3.45,
+          "eval_h": 3.2
+        },
+        {
+          "experiment": "E10 Qwen ours + GateSkip",
+          "train_h": 1.6750000000000003,
+          "eval_h": 19.697066666666668
+        },
+        {
+          "experiment": "E12 lookahead mode",
+          "train_h": 0.5750000000000001,
+          "eval_h": 7.034666666666666
+        }
+      ],
+      "train_h": 14.825,
+      "eval_h": 79.98862222222223,
+      "latency_h": 6,
+      "total_h": 100.81362222222224
+    },
+    "rtx4090/batched_eval": {
+      "rows": [
+        {
+          "experiment": "E0 dense suite (untrained, both models)",
+          "train_h": 0.0,
+          "eval_h": 0.8106641414141414
+        },
+        {
+          "experiment": "E-DFT Dense-FT Llama (+ P3-08 check)",
+          "train_h": 0.9090909090909091,
+          "eval_h": 0.37004040404040406
+        },
+        {
+          "experiment": "E-DFT-Q Dense-FT Qwen",
+          "train_h": 1.3636363636363635,
+          "eval_h": 0.2015138888888889
+        },
+        {
+          "experiment": "E1 GateSkip port Llama (3 budgets)",
+          "train_h": 1.136363636363636,
+          "eval_h": 0.6631515151515152
+        },
+        {
+          "experiment": "E1-official reproduction check (A100)",
+          "train_h": NaN,
+          "eval_h": 0.0
+        },
+        {
+          "experiment": "P3-03 \u03bb sweep, 3 values",
+          "train_h": 3.1363636363636362,
+          "eval_h": 0.1
+        },
+        {
+          "experiment": "E4 ours Llama, 3 budgets",
+          "train_h": 3.1363636363636362,
+          "eval_h": 1.9894545454545454
+        },
+        {
+          "experiment": "E5 baselines FlexiDepth, D-LLM, FFN-skip",
+          "train_h": 3.2727272727272725,
+          "eval_h": 0.43966666666666665
+        },
+        {
+          "experiment": "E5 random skip (no training)",
+          "train_h": 0.0,
+          "eval_h": 0.14655555555555555
+        },
+        {
+          "experiment": "E6\u2013E9 ablations (6 variants)",
+          "train_h": 6.2727272727272725,
+          "eval_h": 0.2
+        },
+        {
+          "experiment": "E10 Qwen ours + GateSkip",
+          "train_h": 3.0454545454545454,
+          "eval_h": 1.2090833333333335
+        },
+        {
+          "experiment": "E12 lookahead mode",
+          "train_h": 1.0454545454545454,
+          "eval_h": 0.43966666666666665
+        }
+      ],
+      "train_h": 23.31818181818182,
+      "eval_h": 6.569796717171717,
+      "latency_h": 6,
+      "total_h": 35.88797853535354
+    },
+    "rtx4090/bs1_eval": {
+      "rows": [
+        {
+          "experiment": "E0 dense suite (untrained, both models)",
+          "train_h": 0.0,
+          "eval_h": 3.9398585858585857
+        },
+        {
+          "experiment": "E-DFT Dense-FT Llama (+ P3-08 check)",
+          "train_h": 0.9090909090909091,
+          "eval_h": 1.6875959595959595
+        },
+        {
+          "experiment": "E-DFT-Q Dense-FT Qwen",
+          "train_h": 1.3636363636363635,
+          "eval_h": 1.6121111111111113
+        },
+        {
+          "experiment": "E1 GateSkip port Llama (3 budgets)",
+          "train_h": 1.136363636363636,
+          "eval_h": 6.342884848484848
+        },
+        {
+          "experiment": "E1-official reproduction check (A100)",
+          "train_h": NaN,
+          "eval_h": 0.0
+        },
+        {
+          "experiment": "P3-03 \u03bb sweep, 3 values",
+          "train_h": 3.1363636363636362,
+          "eval_h": 1.28
+        },
+        {
+          "experiment": "E4 ours Llama, 3 budgets",
+          "train_h": 3.1363636363636362,
+          "eval_h": 19.028654545454543
+        },
+        {
+          "experiment": "E5 baselines FlexiDepth, D-LLM, FFN-skip",
+          "train_h": 3.2727272727272725,
+          "eval_h": 5.6277333333333335
+        },
+        {
+          "experiment": "E5 random skip (no training)",
+          "train_h": 0.0,
+          "eval_h": 1.1724444444444444
+        },
+        {
+          "experiment": "E6\u2013E9 ablations (6 variants)",
+          "train_h": 6.2727272727272725,
+          "eval_h": 2.56
+        },
+        {
+          "experiment": "E10 Qwen ours + GateSkip",
+          "train_h": 3.0454545454545454,
+          "eval_h": 15.476266666666668
+        },
+        {
+          "experiment": "E12 lookahead mode",
+          "train_h": 1.0454545454545454,
+          "eval_h": 5.6277333333333335
+        }
+      ],
+      "train_h": 23.31818181818182,
+      "eval_h": 64.35528282828282,
+      "latency_h": 6,
+      "total_h": 93.67346464646465
+    }
+  },
+  "full": {
+    "a100/batched_eval": {
+      "rows": [
+        {
+          "experiment": "E0 dense suite (untrained, both models)",
+          "train_h": 0.0,
+          "eval_h": 0.7646666666666667
+        },
+        {
+          "experiment": "E-DFT Dense-FT Llama",
+          "train_h": 1.5,
+          "eval_h": 1.0058333333333334
+        },
+        {
+          "experiment": "E-DFT-Q Dense-FT Qwen",
+          "train_h": 2.25,
+          "eval_h": 1.2881666666666667
+        },
+        {
+          "experiment": "E1 GateSkip port Llama (3 budgets)",
+          "train_h": 1.875,
+          "eval_h": 3.0175
+        },
+        {
+          "experiment": "E1-official reproduction check (A100)",
+          "train_h": 6.0,
+          "eval_h": 0.0
+        },
+        {
+          "experiment": "P3-03 \u03bb sweep, 4 values",
+          "train_h": 2.3000000000000003,
+          "eval_h": 0.5
+        },
+        {
+          "experiment": "E4 ours Llama, 3 budgets",
+          "train_h": 1.725,
+          "eval_h": 3.0175
+        },
+        {
+          "experiment": "E5 baselines FlexiDepth, D-LLM, FFN-skip",
+          "train_h": 5.4,
+          "eval_h": 9.0525
+        },
+        {
+          "experiment": "E5 random skip (no training)",
+          "train_h": 0.0,
+          "eval_h": 3.0175
+        },
+        {
+          "experiment": "E6\u2013E9 ablations (6 variants)",
+          "train_h": 10.350000000000001,
+          "eval_h": 9.8925
+        },
+        {
+          "experiment": "E10 Qwen ours + GateSkip",
+          "train_h": 5.025,
+          "eval_h": 7.729000000000001
+        },
+        {
+          "experiment": "E12 lookahead mode",
+          "train_h": 1.725,
+          "eval_h": 1.64875
+        }
+      ],
+      "train_h": 38.150000000000006,
+      "eval_h": 40.93391666666666,
+      "latency_h": 12,
+      "total_h": 91.08391666666667
+    },
+    "a100/bs1_eval": {
+      "rows": [
+        {
+          "experiment": "E0 dense suite (untrained, both models)",
+          "train_h": 0.0,
+          "eval_h": 4.717333333333333
+        },
+        {
+          "experiment": "E-DFT Dense-FT Llama",
+          "train_h": 1.5,
+          "eval_h": 5.946666666666667
+        },
+        {
+          "experiment": "E-DFT-Q Dense-FT Qwen",
+          "train_h": 2.25,
+          "eval_h": 8.205333333333334
+        },
+        {
+          "experiment": "E1 GateSkip port Llama (3 budgets)",
+          "train_h": 1.875,
+          "eval_h": 28.003999999999998
+        },
+        {
+          "experiment": "E1-official reproduction check (A100)",
+          "train_h": 6.0,
+          "eval_h": 0.0
+        },
+        {
+          "experiment": "P3-03 \u03bb sweep, 4 values",
+          "train_h": 2.3000000000000003,
+          "eval_h": 6.4
+        },
+        {
+          "experiment": "E4 ours Llama, 3 budgets",
+          "train_h": 1.725,
+          "eval_h": 28.003999999999998
+        },
+        {
+          "experiment": "E5 baselines FlexiDepth, D-LLM, FFN-skip",
+          "train_h": 5.4,
+          "eval_h": 84.012
+        },
+        {
+          "experiment": "E5 random skip (no training)",
+          "train_h": 0.0,
+          "eval_h": 17.84
+        },
+        {
+          "experiment": "E6\u2013E9 ablations (6 variants)",
+          "train_h": 10.350000000000001,
+          "eval_h": 126.624
+        },
+        {
+          "experiment": "E10 Qwen ours + GateSkip",
+          "train_h": 5.025,
+          "eval_h": 77.69120000000001
+        },
+        {
+          "experiment": "E12 lookahead mode",
+          "train_h": 1.725,
+          "eval_h": 21.104
+        }
+      ],
+      "train_h": 38.150000000000006,
+      "eval_h": 408.5485333333333,
+      "latency_h": 12,
+      "total_h": 458.69853333333333
+    },
+    "rtx4090/batched_eval": {
+      "rows": [
+        {
+          "experiment": "E0 dense suite (untrained, both models)",
+          "train_h": 0.0,
+          "eval_h": 0.8106641414141414
+        },
+        {
+          "experiment": "E-DFT Dense-FT Llama",
+          "train_h": 2.727272727272727,
+          "eval_h": 1.110121212121212
+        },
+        {
+          "experiment": "E-DFT-Q Dense-FT Qwen",
+          "train_h": 4.090909090909091,
+          "eval_h": 1.3218712121212122
+        },
+        {
+          "experiment": "E1 GateSkip port Llama (3 budgets)",
+          "train_h": 3.4090909090909083,
+          "eval_h": 3.3303636363636366
+        },
+        {
+          "experiment": "E1-official reproduction check (A100)",
+          "train_h": NaN,
+          "eval_h": 0.0
+        },
+        {
+          "experiment": "P3-03 \u03bb sweep, 4 values",
+          "train_h": 4.181818181818182,
+          "eval_h": 0.4
+        },
+        {
+          "experiment": "E4 ours Llama, 3 budgets",
+          "train_h": 3.1363636363636362,
+          "eval_h": 3.3303636363636366
+        },
+        {
+          "experiment": "E5 baselines FlexiDepth, D-LLM, FFN-skip",
+          "train_h": 9.818181818181817,
+          "eval_h": 9.991090909090909
+        },
+        {
+          "experiment": "E5 random skip (no training)",
+          "train_h": 0.0,
+          "eval_h": 3.3303636363636366
+        },
+        {
+          "experiment": "E6\u2013E9 ablations (6 variants)",
+          "train_h": 18.818181818181817,
+          "eval_h": 7.914
+        },
+        {
+          "experiment": "E10 Qwen ours + GateSkip",
+          "train_h": 9.136363636363637,
+          "eval_h": 7.9312272727272735
+        },
+        {
+          "experiment": "E12 lookahead mode",
+          "train_h": 3.1363636363636362,
+          "eval_h": 1.319
+        }
+      ],
+      "train_h": 58.454545454545446,
+      "eval_h": 40.789065656565654,
+      "latency_h": 12,
+      "total_h": 111.24361111111111
+    },
+    "rtx4090/bs1_eval": {
+      "rows": [
+        {
+          "experiment": "E0 dense suite (untrained, both models)",
+          "train_h": 0.0,
+          "eval_h": 3.9398585858585857
+        },
+        {
+          "experiment": "E-DFT Dense-FT Llama",
+          "train_h": 2.727272727272727,
+          "eval_h": 5.062787878787878
+        },
+        {
+          "experiment": "E-DFT-Q Dense-FT Qwen",
+          "train_h": 4.090909090909091,
+          "eval_h": 6.756787878787879
+        },
+        {
+          "experiment": "E1 GateSkip port Llama (3 budgets)",
+          "train_h": 3.4090909090909083,
+          "eval_h": 23.319563636363636
+        },
+        {
+          "experiment": "E1-official reproduction check (A100)",
+          "train_h": NaN,
+          "eval_h": 0.0
+        },
+        {
+          "experiment": "P3-03 \u03bb sweep, 4 values",
+          "train_h": 4.181818181818182,
+          "eval_h": 5.12
+        },
+        {
+          "experiment": "E4 ours Llama, 3 budgets",
+          "train_h": 3.1363636363636362,
+          "eval_h": 23.319563636363636
+        },
+        {
+          "experiment": "E5 baselines FlexiDepth, D-LLM, FFN-skip",
+          "train_h": 9.818181818181817,
+          "eval_h": 69.9586909090909
+        },
+        {
+          "experiment": "E5 random skip (no training)",
+          "train_h": 0.0,
+          "eval_h": 15.188363636363636
+        },
+        {
+          "experiment": "E6\u2013E9 ablations (6 variants)",
+          "train_h": 18.818181818181817,
+          "eval_h": 101.2992
+        },
+        {
+          "experiment": "E10 Qwen ours + GateSkip",
+          "train_h": 9.136363636363637,
+          "eval_h": 62.90152727272727
+        },
+        {
+          "experiment": "E12 lookahead mode",
+          "train_h": 3.1363636363636362,
+          "eval_h": 16.8832
+        }
+      ],
+      "train_h": 58.454545454545446,
+      "eval_h": 333.7495434343434,
+      "latency_h": 12,
+      "total_h": 404.20408888888886
+    }
+  }
+}
