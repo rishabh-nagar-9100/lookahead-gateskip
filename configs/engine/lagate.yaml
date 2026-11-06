@@ -1,3 +1,4 @@
 # Three-tier inference engine (ARCHITECTURE §5). Loaded by lagate.engine.tiered.EngineConfig.from_dict.
 gate_scaling: true   # scale executed modules by g_L / g_L·g_M as in training; open question §4, decide in Phase 3
 kv_mode: exact      # exact per-layer K,V for every tier. "copy_prev" (GateSkip's intended copy, E1-copyKV) is task P2-10
+sync_mode: per_module   # decode host syncs: per_module (skipped attention not executed) | per_layer (speculative attention, 1 sync per layer; P5-06)

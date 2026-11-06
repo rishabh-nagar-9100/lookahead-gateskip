@@ -22,7 +22,7 @@ os.environ.setdefault("HF_DATASETS_OFFLINE", "1")
 
 import torch
 
-from lagate.engine.tiered import DensePolicy, FixedTierPolicy, TieredEngine
+from lagate.engine.tiered import DensePolicy, EngineConfig, FixedTierPolicy, TieredEngine
 from lagate.models.gated import LookaheadGatedModel
 from lagate.routing.router import RouterConfig
 from lagate.models.adapter import DecoderAdapter, Dims
@@ -168,9 +168,10 @@ def main() -> None:
             engines[variant] = TieredEngine(base, DensePolicy())
         elif variant == "general_tier1":
             engines[variant] = TieredEngine(base, FixedTierPolicy(torch.ones(4096, L, dtype=torch.long, device=device)))
-        elif variant == "lagate_noskip":
+        elif variant in ("lagate_noskip", "lagate_noskip_per_layer"):
             gated = LookaheadGatedModel(base, RouterConfig.from_dict(load_config(REPO_ROOT / "configs/router/lagate.yaml"))).to(device)
-            engines[variant] = TieredEngine.from_gated_model(gated, float("-inf"), float("-inf"))
+            mode = "per_layer" if variant.endswith("per_layer") else "per_module"
+            engines[variant] = TieredEngine.from_gated_model(gated, float("-inf"), float("-inf"), EngineConfig(sync_mode=mode))
         else:
             raise ValueError(variant)
     for i, ids in enumerate(prompts):

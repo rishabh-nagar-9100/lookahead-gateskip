@@ -37,6 +37,11 @@ from lagate.routing.router import DualHeadRouter, RouterConfig
 class EngineConfig:
     gate_scaling: bool = True   # scale executed modules by their gates (open question §4)
     kv_mode: str = "exact"      # "exact" only for now; "copy_prev" is task P2-10 (D-16)
+    # Decode-time host syncs (P5-06, R4). "per_module": one sync per gated module (attention, then
+    # MLP), so skipped attention is not executed. "per_layer": attention runs speculatively for the
+    # decode token and is masked on the device, so only the MLP decision syncs. Outputs are
+    # identical; skipped attention is then executed and counted as executed MACs.
+    sync_mode: str = "per_module"
 
     @classmethod
     def from_dict(cls, d: dict[str, Any] | None) -> "EngineConfig":
@@ -47,6 +52,8 @@ class EngineConfig:
         cfg = cls(**d)
         if cfg.kv_mode != "exact":
             raise NotImplementedError(f"kv_mode={cfg.kv_mode!r} (copy_prev is task P2-10)")
+        if cfg.sync_mode not in ("per_module", "per_layer"):
+            raise ValueError(f"sync_mode must be per_module or per_layer, got {cfg.sync_mode!r}")
         return cfg
 
 
@@ -171,6 +178,7 @@ class LagatePolicy:
     needs_mlp_input = False
     uses_ema = True
     all_dense = False
+    mlp_gate_needs_attention = True  # g_M reads ΔAttn: undefined where attention was skipped
 
     def __init__(self, routers: list[DualHeadRouter], tau_layer, tau_mlp):
         self.routers = routers
@@ -239,7 +247,8 @@ class TieredEngine:
         self.record_hidden = False  # add each layer's input h to hook records (tests, analysis)
         self._stats = EngineStats()
         # Decisions stay on the device until ``stats`` is read (P5-05: no per-token host sync).
-        self._pending: list[tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None]] = []
+        # (positions, run_attn, run_mlp, attn_executed); None = all True; attn_executed None = run_attn.
+        self._pending: list[tuple] = []
 
     @classmethod
     def from_gated_model(cls, gated, tau_layer, tau_mlp, cfg: EngineConfig | None = None) -> "TieredEngine":
@@ -265,12 +274,13 @@ class TieredEngine:
         c, s = self.costs, self._stats
         r_on = float(self.policy.router_macs(c, True))
         r_off = float(self.policy.router_macs(c, False))
-        for pos, run_attn, run_mlp in self._pending:
+        for pos, run_attn, run_mlp, attn_exec in self._pending:
             n = (pos.to("cpu", torch.float64) + 1)
             a = torch.ones_like(n, dtype=torch.bool) if run_attn is None else run_attn.cpu()
             m = torch.ones_like(n, dtype=torch.bool) if run_mlp is None else run_mlp.cpu()
+            x = a if attn_exec is None else attn_exec.cpu()  # attention actually executed
             attn = 2 * n * c.dims.n_heads * c.dims.head_dim
-            macs = c.kv + a * (c.qo + attn) + m * c.mlp + torch.where(a, r_on, r_off)
+            macs = c.kv + x * (c.qo + attn) + m * c.mlp + torch.where(x, r_on, r_off)
             s.macs += float(macs.sum())
             s.dense_macs += float((c.qo + c.kv + attn + c.mlp).sum())
             tiers = tiers_from(a, m)
@@ -317,17 +327,29 @@ class TieredEngine:
             if dense:  # fast path: no decisions, no gathers, no host syncs
                 h = h + ad.attend(layer, ad.q(layer, n, cos, sin), k_all, v_all, pos, k_pos, all_visible=decode)
                 h = h + ad.mlp(layer, ad.post_norm(layer, h))
-                self._pending.append((pos, None, None))
+                self._pending.append((pos, None, None, None))
                 if self.layer_hooks:
                     ones = torch.ones(T, dtype=torch.bool, device=dev)
                     self._run_hooks(layer, phase, pos, input_ids, {}, ones, ones, h_in, h)
                 continue
 
             run_attn, ctx = pol.attn(layer, n, mu, pos)
-            sel = _selection(run_attn, decode)  # slice / index tensor / None (nothing runs)
-            ctx["sel"] = sel
-            attn_rows = h.new_zeros(0, h.shape[-1])
-            if sel is not None:
+            attn_exec = None
+            speculative = decode and self.cfg.sync_mode == "per_layer"
+            if speculative:
+                # Speculative attention: run it for the token, keep it only if run_attn (no host sync).
+                ctx["sel"] = slice(None)
+                q = ad.q(layer, n, cos, sin)
+                attn_rows = ad.attend(layer, q, k_all, v_all, pos, k_pos, all_visible=True)[0]  # (1, H)
+                scale = pol.attn_scale(ctx, slice(None)) if self.cfg.gate_scaling else None
+                upd = attn_rows if scale is None else scale * attn_rows
+                h = h + torch.where(run_attn[:, None], upd, torch.zeros_like(upd))[None]
+                attn_exec = torch.ones_like(run_attn)
+            else:
+                sel = _selection(run_attn, decode)  # slice / index tensor / None (nothing runs)
+                ctx["sel"] = sel
+                attn_rows = h.new_zeros(0, h.shape[-1])
+            if not speculative and sel is not None:
                 q = ad.q(layer, n[:, sel], cos[:, sel], sin[:, sel])
                 attn_rows = ad.attend(layer, q, k_all, v_all, pos[sel], k_pos, all_visible=decode)[0]  # (R, H)
                 scale = pol.attn_scale(ctx, sel) if self.cfg.gate_scaling else None
@@ -336,6 +358,8 @@ class TieredEngine:
 
             mlp_in = ad.post_norm(layer, h)[0] if pol.needs_mlp_input else None  # (T, H)
             run_mlp = pol.mlp(layer, ctx, attn_rows, run_attn, mlp_in)
+            if attn_exec is not None and getattr(pol, "mlp_gate_needs_attention", False) and "g_mlp" in ctx:
+                ctx["g_mlp"] = torch.where(run_attn, ctx["g_mlp"], torch.full_like(ctx["g_mlp"], float("nan")))
             msel = _selection(run_mlp, decode)
             if msel is not None:
                 x = mlp_in[msel][None] if mlp_in is not None else ad.post_norm(layer, h[:, msel])
@@ -343,7 +367,7 @@ class TieredEngine:
                 scale = pol.mlp_scale(ctx, msel) if self.cfg.gate_scaling else None
                 h = _add_rows(h, msel, out if scale is None else scale * out)
 
-            self._pending.append((pos, run_attn, run_mlp))
+            self._pending.append((pos, run_attn, run_mlp, attn_exec))
             if self.layer_hooks:
                 self._run_hooks(layer, phase, pos, input_ids, ctx, run_attn, run_mlp, h_in, h)
 

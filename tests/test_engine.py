@@ -195,3 +195,42 @@ def test_last_only_logits(tiny_model):
     torch.testing.assert_close(last[:, 0], full[:, -1], rtol=0, atol=1e-5)  # 1-row vs T-row LM-head matmul
     eng.reset_stats()
     assert eng.stats.macs == 0
+
+
+# ----- P5-06 one host sync per layer (speculative attention at decode) ----------------------------
+def test_per_layer_sync_mode_same_outputs_more_executed_macs(tiny_model):
+    gated = LookaheadGatedModel(tiny_model, RouterConfig(head_init_std=3.0, bias_init=0.0))
+    x = seq(P + N_NEW, seed=11)
+    runs = {}
+    for mode in ("per_module", "per_layer"):
+        eng = TieredEngine.from_gated_model(gated, 0.5, 0.5, EngineConfig(sync_mode=mode))
+        recs = []
+        eng.layer_hooks.append(lambda r: recs.append((r["tier"].clone(), r["g_mlp"].clone())))
+        cache = eng.new_cache()
+        o = [eng.forward_chunk(x[:, :P], cache)]
+        for t in range(P, P + N_NEW):
+            o.append(eng.forward_chunk(x[:, t : t + 1], cache, phase="decode"))
+        runs[mode] = (torch.cat(o, 1), eng.stats, recs)
+    (lo_m, st_m, rec_m), (lo_l, st_l, rec_l) = runs["per_module"], runs["per_layer"]
+    torch.testing.assert_close(lo_l, lo_m, rtol=0, atol=1e-6)
+    assert st_l.tier_counts == st_m.tier_counts and st_m.tier_counts[3] > 0
+    for (t_m, g_m), (t_l, g_l) in zip(rec_m, rec_l):  # same decisions; g_M NaN where attention skipped
+        assert torch.equal(t_m, t_l)
+        assert torch.equal(torch.isnan(g_m), torch.isnan(g_l))
+    # Extra executed MACs = speculative attention (Q,O + scores + MLP head) for decode tier-3 tokens only.
+    c = TieredEngine(tiny_model, DensePolicy()).costs
+    extra = 0.0
+    L = tiny_model.config.num_hidden_layers
+    for i, (t_l, _) in enumerate(rec_l):
+        if i < L:  # records: L prefill layers, then L per decode step
+            continue
+        n = P + (i - L) // L + 1
+        extra += int((t_l == 3).sum()) * (c.qo + c.attn(n) + c.router_mlp_head)
+    assert st_l.macs - st_m.macs == extra > 0
+
+
+def test_sync_mode_validated():
+    import pytest
+
+    with pytest.raises(ValueError):
+        EngineConfig.from_dict({"sync_mode": "never"})
