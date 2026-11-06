@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lagate"
+version = "0.0.1"
+description = "LookAhead-GateSkip: context-aware dynamic layer skipping for small language models"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+authors = [{ name = "Rishabh Nagar" }]
+dependencies = [
+    "torch",
+    "transformers",
+    "accelerate",
+    "peft",
+    "datasets",
+    "lm-eval",
+    "pyyaml",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

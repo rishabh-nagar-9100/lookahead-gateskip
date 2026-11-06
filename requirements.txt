@@ -1,0 +1,10 @@
+# Top-level requirements. Exact versions are frozen in requirements.lock.txt (see docs/SETUP.md).
+torch
+transformers
+accelerate
+peft
+datasets
+lm-eval
+pyyaml
+python-dotenv
+pytest
