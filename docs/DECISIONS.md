@@ -137,3 +137,23 @@ Format: ID · date · decision · alternatives considered · reason · status (a
   - Extra stop strings: model-specific, and they can truncate reasoning.
 - **Verification checkpoint (P3-08):** after the **first Dense-FT model** is trained on the GPU, rerun the 3-criteria check on it: ≥ 90% of outputs contain `#### N`, ≤ 2% hit the 512-token cap, |strict − flexible| ≤ 4 points. Run it on the calibration split (held-out train data, never test). **If it fails, revisit the protocol before training any gated model** (GateSkip or ours).
 - **Status:** active.
+
+### D-16 · 2026-11-06 · proposed · Implement in our own `lagate` package; GateSkip is re-implemented there as a baseline and checked against the official code
+- **Question:** build our method (a) inside a fork of GateSkip's codebase, or (b) in our own `lagate` package, with GateSkip only as a baseline?
+
+| Criterion | (a) Fork GateSkip | (b) Own `lagate` package |
+|---|---|---|
+| Sharing the train/eval pipeline | Reuses their Lightning loop, data module and lm-eval wrapper as is. | We write a training loop and data module (needed in Phase 3 anyway). GateSkip's method is re-implemented in the **same** loop: per-module vector gate `σ(W h)`, L2 gate loss averaged over modules, percentile ramp 0→0.2, same lr, steps and seeds. That's ≈ 100 lines (`GateLayer` + `GatedWrapper` + `compute_gate_loss`). |
+| Fairness | Shared code by construction, but it also shares their known problems (below), which would have to be patched for both methods. | Same loop, data (D-06/D-15), eval protocol (D-15), calibration (§6), FLOP counter and bs=1 engine for every method. The re-implementation is checked against the official code via D-12(c): base Llama-3.2-1B, native format, 0% and 15%, which must match within seed noise. Reviewers see both the faithful official number and the matched comparison. |
+| Execution model | Their wrapper **runs every module and then zeroes its output**. K,V for skipped tokens are copied from ℓ−1 (inside a silent `try/except`), and thresholds are batch quantiles (no skipping at bs=1 decode). Our Tier 3 (exact K,V only), real module skipping, the ΔAttn-conditioned MLP head and the cross-token EMA state would all need re-plumbing of their wrapper and Hugging Face internals. | Written to ARCHITECTURE.md from the start: real skipping, exact Tier-3 K,V, EMA state kept next to the KV cache, our own decode loop for latency (P5-01). |
+| Environment | lm-eval ≤ 0.4.8, datasets < 3.0, torch 2.8 + CUDA, flash-attn cp310 Linux wheel, vLLM, Python 3.10 container. No macOS/MPS development and no CPU CI without stripping deps. Conflicts with D-09/D-10 and our tested lm-eval 0.4.13 custom task (`gsm8k_chat_zs`). | Our env as is (Python 3.11, transformers 5.22, lm-eval 0.4.13). CPU CI and MPS latency work. The official GateSkip runs **only** for D-12(c), in its own Apptainer/conda env on the GPU machine, never imported by our code. |
+| Fit with D-15 | Their data pipeline is plain text (`Question:/Answer:`). It would have to be rewritten for chat format, loss on assistant tokens only, and our system instruction. Their eval would need the `limit=100` fix and our task and extractor. | D-15's chat conversion (P3-06), eval task and robust extractor are already in our package. |
+| Effort | Low to start, then growing: patch their wrapper, KV, thresholds, data and eval, keep their transformers-era code working, and still build our own engine for latency. | Higher up front (training loop + data module + GateSkip port ≈ 1–2 weeks), but Phase 2/3 needs most of it anyway. No upstream drift; tests (T-EQ, T-KV, T-T3, T-FLOP, T-EMA) cover our code directly. |
+| Main risk | Hidden coupling to their bugs; two codebases mixed in one repo. | "Your GateSkip is weaker than theirs." Mitigated by the D-12(c) check and by reporting the official number. |
+
+- **Recommendation:** **(b)**. Our method's core (real skipping, exact Tier-3 K,V, bs=1 thresholds, chat-format D-15 pipeline) conflicts with GateSkip's execution model and environment. Reusing their code would save little and import known issues. A same-pipeline GateSkip port plus the official-code check is fairer and easier to defend.
+- **Consequences if accepted:**
+  - D-12(a) becomes "train **our GateSkip port** with their recipe in our pipeline". The official code is used for the D-12(c) reproduction check only.
+  - New tasks: P2-09 GateSkip port in `lagate/routing/gateskip.py` (vector gate, L2 loss, percentile ramp, gate scaling at inference per D-07 note), with a unit test against a hand calculation. P4-06 D-12(c) port-vs-official check on the GPU.
+  - `baselines/GateSkip` stays a read-only reference clone.
+- **Status:** proposed; waiting for Rishabh's OK.

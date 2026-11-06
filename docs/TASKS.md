@@ -30,6 +30,7 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [ ] P1-06 R1 slides: pilot figures + implementation status
 
 ## Phase 2 – Core implementation
+- [!] P2-00 Fork vs own package (D-16, proposed: own `lagate` package + GateSkip port). Waiting on Rishabh's OK before any Phase 2 code
 - [ ] P2-01 Model wrapper exposing per-layer attention / MLP / K,V projections for Llama and Qwen
 - [ ] P2-02 EMA memory module (prefill scan + decode recurrence) with unit tests
 - [ ] P2-03 Dual-head router module (shared bottleneck, g_L, g_M with ΔAttn input), bias init
