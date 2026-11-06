@@ -7,9 +7,9 @@ Priority: ★★★ must read fully and compare against · ★★ read method + 
 | 1 | GateSkip (Laitenberger et al., ICLR 2026) – base | https://arxiv.org/abs/2510.13876 · code https://github.com/Thiggel/GateSkip | ★★★ | Residual gates, sparsity loss, evaluation setup, main baseline |
 | 2 | HeRo (Lin, Wan, Wang, 2026) – closest work | https://arxiv.org/abs/2609.08189 | ★★★ | Depth-wise router memory; our differentiation (cross-token memory) |
 | 3 | DiffSkip (Luo, Wang, Yan, Findings ACL 2025) | ACL Anthology 2025.findings-acl.377 | ★★★ | ΔAttn as MLP-skip signal; bottleneck router design |
-| 4 | FlexiDepth (Luo, Wang, Yan, COLM 2025) | https://arxiv.org/abs/2503.23798 | ★★★ | Full KV cache for skipped tokens; baseline; no wall-clock speedup |
+| 4 | FlexiDepth (Luo, Wang, Yan, COLM 2025) | https://arxiv.org/abs/2503.23798 | ★★★ | Full KV cache for skipped tokens (verified against the paper by Rishabh, 2026-11-06); baseline; no wall-clock speedup |
 | 5 | SkipGPT (Zhao et al., 2025) | https://arxiv.org/abs/2506.04179 · code https://github.com/EIT-NLP/SkipGPT | ★★ | Decoupled attention/MLP routers; global budget |
-| 6 | D-LLM (Jiang et al., NeurIPS 2024) | NeurIPS 2024 proceedings · code https://github.com/Jyk-122/D-LLM | ★★ | KV eviction for skipped layers; baseline |
+| 6 | D-LLM (Jiang et al., NeurIPS 2024) | NeurIPS 2024 proceedings · code https://github.com/Jyk-122/D-LLM | ★★ | KV eviction for skipped layers (verified against the paper by Rishabh, 2026-11-06); baseline |
 | 7 | CLaSp (Chen et al., ACL 2025) | https://arxiv.org/abs/2505.24196 | ★★ | Adjacent tokens skip similar layers (motivation for E3) |
 | 8 | LiteStage (Kang, Song, Kim, 2025) | https://arxiv.org/abs/2510.14211 | ★★ | Skipping lengthens outputs → measure output length |
 | 9 | Dr.LLM (Heakl et al., ICLR 2026) | ICLR 2026 | ★★ | Skip/execute/repeat routers; sequence scope |
@@ -121,6 +121,23 @@ threshold = torch.quantile(scores, quantile, interpolation='linear')
 - A bs=1 prefill has many tokens, so the quantile does skip prompt tokens.
 - With their eval batch (`eval_batch_size=128` at `jobs/job_common.sh:46`, 16 for several variants), each decode step skips exactly the target fraction **of the tokens in that batch**. That is a per-step, batch-relative oracle that a bs=1 deployment cannot use.
 - Training uses the separate percentile-ramp path (`GatedWrapper.py:73–98`).
+
+#### Gate cost (verified 2026-11-06; code at `8d56513`, paper arXiv:2510.13876 HTML)
+**Code.** Each attention and MLP module of each layer gets a gate `nn.Linear(d_model, d_model)` followed by a sigmoid (`experiment/models/gating/GateLayer.py:34`, `:43`). The output is 1 for `--single-number-gates` only.
+- `d_model = model.config.hidden_size` (`experiment/models/model_adapter/ModelAdapter.py:72–76`), so input and output dims are both H = 2048 for Llama-3.2-1B.
+- With the default `one_gate_per_layer=True`, `ModelAdapter.py:102–111` passes `gate=None`, and `ModelGating.wrap_module` builds a new `GateLayer` per module (`ModelGating.py:31`). The `GateSkip-separate-vector` job uses this default (`jobs/job_common.sh:241–246`).
+- The gate runs on every token before the skip decision (`GatedWrapper.py:227`). Per token and layer that is 2 × H × H = **8,388,608 MACs**, which is 13.7% of a dense Llama-1B layer at n = 128 and 12.1% at n = 2048 (our FLOP report, run `20261106-162120_flops_llama_s0`). For comparison, our router costs 0.6%.
+- The shared-vector variant shares parameters but not MACs: every token still runs both gates at every layer.
+
+**What their "compute saved" measures.** The x-axis of their results is `percent_tokens_skipped`. That is the unweighted mean over modules of the fraction of tokens skipped (`DefaultLightningModule.py:138–142`, `EvaluationRunner.py:86–95`, `collect_results.py:60–66`, `compare_results.py:19–25`). It is a token-skip fraction: it does not weight attention vs MLP cost and does not count the gates.
+
+**Paper.**
+- Savings are reported at budget levels, i.e. the fraction of tokens processed per layer (§3.3, §4.1). §5 says the main text reports "theoretical FLOP reductions".
+- Gate cost is discussed only as **parameter** overhead. §3.4 calls it negligible, "4% for separate gates with hidden-state sized output on Llama-3.2-1b". I found no statement that gate FLOPs are subtracted from the reported savings.
+- **Parameter count looks understated.** Table 13 gives 2L(H² + H) = 50,380,800 (≈ 4.06%) for "individual vector" on Llama-1B, computed with H = 1024 and L = 24 as rendered in the HTML. Llama-3.2-1B has H = 2048 and L = 16, which gives 2·16·(2048² + 2048) = **134,283,264 ≈ 10.8%** of 1.24B. That matches the code and our earlier estimate.
+- Not read: the last ≈ 5.7k characters of the HTML (references/appendix tail). Worth confirming in the PDF before citing.
+
+**Consequence:** at matched compute (D-05) GateSkip's gate cost must be included (D-18 does this). This supports gap G5.
 
 - **Software:**
   - Python 3.10 inside an Apptainer image (`pytorch.def`), although `environment.yml` says 3.11. Their stack: torch 2.8, CUDA 12, lm-eval ≤ 0.4.8, datasets < 3.0, PyTorch Lightning, DeepSpeed (optional; ZeRO-3 + CPU offload when enabled), flash-attn 2.8.3 (Linux x86_64 cp310 wheel only), vLLM, W&B.

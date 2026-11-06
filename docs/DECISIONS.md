@@ -201,12 +201,17 @@ ARCHITECTURE.md does not pin these down; the choices below are what the code doe
     - FlexiDepth computes K,V for skipped tokens, so the cache stays complete.
     - D-LLM evicts skipped tokens' K,V, so later tokens can no longer attend to those entries at that layer.
 
-    Our Tier 3 takes the compute side at 2–4% of a dense layer (FLOP report) and is compared with both in E5. Both characterisations come from our paper reading (LITERATURE.md table); check them against the papers/code before writing them up.
+    Our Tier 3 takes the compute side at 2–4% of a dense layer (FLOP report) and is compared with both in E5. Both characterisations were checked against the papers by Rishabh (2026-11-06, LITERATURE.md).
   - **Exact K,V is a correctness property of our engine** (ARCHITECTURE §5, test T-T3), **not a contribution over GateSkip.** GateSkip's own code is effectively exact too.
   - **G6 (batch-size-1 deployment)** gains the threshold finding:
     - GateSkip's inference thresholds are quantiles over the current forward pass (`threshold_finder.py:29–36`, `GatedWrapper.py:59–61, 102`). With one token per pass they return 0.0, so no module is skipped during bs=1 decoding. Its reported savings depend on batched evaluation (eval batch 128).
     - **Contribution:** fixed per-module thresholds from the calibration-split empirical CDF, applied the same way to every method (D-18). Our method and the GateSkip port both skip at bs=1, and compute is measured with real skipping in the engine.
   - E1-copyKV / P2-10 become optional and low priority (TASKS.md, EXPERIMENTS.md).
 - **Not changed:** D-03. Tier 3 computes its own K,V, and the alternatives listed there (cross-layer copy, eviction) are still the design space, but the copy alternative is not attributed to GateSkip.
-- **Note:** the full G1–G6 list lives in the R0 deck. PAPER_PLAN.md now records G4 and G6; the other gaps should be copied in from the deck.
+- **Gap definitions:** G1–G6 are in [PAPER_PLAN.md › Research gaps](PAPER_PLAN.md#research-gaps) (added 2026-11-06, D-20).
 - **Status:** active.
+
+### D-20 · 2026-11-06 · active · Research gaps G1–G6 recorded in the repo
+- **Decision:** the six gaps from the R0 deck are now defined in [PAPER_PLAN.md › Research gaps](PAPER_PLAN.md#research-gaps), each linked to the claims (C1–C6) and experiments that address it. G4 and G6 use the D-19 wording. G5 (router overhead) uses the gate-cost figures verified in the official code and checked against the paper (LITERATURE.md, "Gate cost").
+- **Finding behind G5:** GateSkip's "compute saved" is a token-skip fraction that ignores the gates. Its vector gates cost 13.7% of a dense Llama-1B layer, and the paper's Table 13 understates their parameters (4.06% printed vs 10.8% with Llama-3.2-1B's H = 2048, L = 16). Our matched-compute comparison counts gate MACs for every method (D-18).
+- **Status:** active. Gap wording changes go through PAPER_PLAN.md plus a DECISIONS entry.
