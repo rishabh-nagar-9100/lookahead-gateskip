@@ -14,6 +14,9 @@ prompts:
   chat_config: configs/eval/gsm8k_chat_dense_qwen.yaml   # D-15 system instruction + chat template
 generate:
   max_new_tokens: 64              # fixed length (no early stop) so timings compare
+  # Qwen's generation_config.json sets repetition_penalty 1.1, which HF applies even with
+  # do_sample=False. Pure greedy (what our engine does) needs it overridden to 1.0.
+  hf_overrides: {repetition_penalty: 1.0}
 latency:
   warmup_runs: 1
   timed_runs: 5

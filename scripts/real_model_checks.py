@@ -77,21 +77,27 @@ def teq(model, prompts, device) -> dict:
 
 
 @torch.no_grad()
-def hf_generate(model, ids, n):
-    return model.generate(ids, max_new_tokens=n, min_new_tokens=n, do_sample=False,
-                          pad_token_id=model.config.eos_token_id if isinstance(model.config.eos_token_id, int) else 0)[:, ids.shape[1]:]
+def hf_generate(model, ids, n, **overrides):
+    return model.generate(ids, max_new_tokens=n, min_new_tokens=n, do_sample=False, pad_token_id=0,
+                          **overrides)[:, ids.shape[1]:]
 
 
-def compare_generate(model, prompts, n, device) -> list[dict]:
+def compare_generate(model, prompts, n, device, overrides: dict) -> dict:
+    """Dense engine (pure greedy) vs HF generate with the model's generation_config as is and with
+    ``overrides`` (e.g. repetition_penalty 1.0 = pure greedy)."""
     eng = TieredEngine(model, DensePolicy())
-    rows = []
-    for ids in prompts:
-        ids = ids.to(device)
-        a = hf_generate(model, ids, n)[0].tolist()
-        b = eng.generate(ids, n)[0][0].tolist()
-        div = next((i for i, (x, y) in enumerate(zip(a, b)) if x != y), None)
-        rows.append({"identical": a == b, "first_divergence": div, "n_tokens": len(a)})
-    return rows
+    out = {"hf_generation_config": {k: v for k, v in model.generation_config.to_diff_dict().items()
+                                    if k in ("repetition_penalty", "temperature", "top_p", "top_k", "do_sample")}}
+    for label, kw in (("hf_default_config", {}), ("hf_pure_greedy", overrides)):
+        rows = []
+        for ids in prompts:
+            ids = ids.to(device)
+            a = hf_generate(model, ids, n, **kw)[0].tolist()
+            b = eng.generate(ids, n)[0][0].tolist()
+            div = next((i for i, (x, y) in enumerate(zip(a, b)) if x != y), None)
+            rows.append({"identical": a == b, "first_divergence": div, "n_tokens": len(a)})
+        out[label] = rows
+    return out
 
 
 def time_fn(fn, warmup: int, runs: int, device: str, n_tokens: int) -> dict:
@@ -147,16 +153,19 @@ def main() -> None:
     out["latency"] = {"new_tokens": n, "per_prompt": []}
     models = {a: load_model(cfg["model"], cfg["gen_dtype"], device, attn=a) for a in lat["hf_attn_implementations"][:1]}
     base = models[lat["hf_attn_implementations"][0]]
-    out["generate_match"] = compare_generate(base, prompts, n, device)
-    for i, r in enumerate(out["generate_match"]):
-        print(f"[generate] prompt {i}: identical={r['identical']} first_divergence={r['first_divergence']}")
+    overrides = cfg["generate"].get("hf_overrides", {})
+    out["generate_match"] = compare_generate(base, prompts, n, device, overrides)
+    print(f"[generate] model generation_config: {out['generate_match']['hf_generation_config']}")
+    for label in ("hf_default_config", "hf_pure_greedy"):
+        for i, r in enumerate(out["generate_match"][label]):
+            print(f"[generate] {label} prompt {i}: identical={r['identical']} first_divergence={r['first_divergence']}")
     eng = TieredEngine(base, DensePolicy())
     for i, ids in enumerate(prompts):
         ids = ids.to(device)
         row = {"prompt_tokens": int(ids.shape[1])}
         for attn in lat["hf_attn_implementations"]:
             base.set_attn_implementation(attn)
-            row[f"hf_{attn}"] = time_fn(lambda: hf_generate(base, ids, n), lat["warmup_runs"], lat["timed_runs"], device, n)
+            row[f"hf_{attn}"] = time_fn(lambda: hf_generate(base, ids, n, **overrides), lat["warmup_runs"], lat["timed_runs"], device, n)
         base.set_attn_implementation(lat["hf_attn_implementations"][0])
         row["engine_dense"] = time_fn(lambda: eng.generate(ids, n), lat["warmup_runs"], lat["timed_runs"], device, n)
         out["latency"]["per_prompt"].append(row)
