@@ -175,3 +175,21 @@ ARCHITECTURE.md does not pin these down; the choices below are what the code doe
 - **FLOP accounting (§7)** counts the linear maps and attention matmuls only; it leaves out embeddings, LM head, norms, RoPE, element-wise ops, the EMA update and biases. The counter agrees with `torch.utils.flop_counter` on the tiny models (T-FLOP).
 - **T-KV / T-T3 tolerance:** run in float64 at atol 1e-9. In fp32, running row subsets (only tier-1/2 rows through Q and the MLP) changes matmul shapes and moves logits by about 1e-5 even when the logic is exact, so an fp32 check at 1e-5 would be flaky. T-EQ (router off, dense = HF) stays fp32 at 1e-5 as specified.
 - **Engine "tier 0"** (MLP ran, attention skipped) is never produced by our policy. It exists only for the GateSkip port, whose attention and MLP gates are independent (P2-09).
+
+### D-18 · 2026-11-06 · active · GateSkip port: fixed per-module thresholds from the calibration-split empirical CDF (documented adaptation)
+- **Context:** GateSkip's inference threshold is recomputed in every forward pass from the importances of the tokens in that pass (`baselines/GateSkip/experiment/models/gating/GatedWrapper.py:59–61`, `:102`). The quantile code is `experiment/utils/threshold_finder.py:29–36` at commit `8d56513`:
+  ```python
+  if scores.numel() <= 1 or do_not_skip:
+      return do_not_skip_default_value          # 0.0 for gating
+  threshold = torch.quantile(scores, quantile, interpolation='linear')
+  ```
+  A batch-size-1 decode step has one token, so the threshold is 0.0. Importances are sigmoid means > 0, and skipping needs `importance <= threshold` (`GatedWrapper.py:238`), so **no module is ever skipped during bs=1 decoding**. Only the prompt and batched decoding skip, and there the skip set depends on which other sequences share the batch. `tests/test_gateskip.py::test_official_batch_quantile_skips_nothing_at_bs1_decode_but_calibrated_does` runs their `find_threshold` and shows 0 skips over 400 decode tokens.
+- **Decision:** the port (`lagate/routing/gateskip.py`, P2-09) is evaluated with **fixed per-module thresholds** taken from the empirical CDF of each module's importances on the calibration split, using the same `lagate.calibration.ecdf` procedure as our method (ARCHITECTURE §6, D-12(b)).
+  - **Same semantics as theirs:** a skip fraction p per module, as their `desired_skip_ratio` (`EvaluationRunner.py:265–280`). It is now learned once from calibration data instead of from the current batch.
+  - **Budgets:** p is chosen with `match_budget` so that expected FLOPs (our counter, gates included) hit each target reduction.
+  - Calibration importances are collected with soft gates and no skipping (`apply_train_skipping = False`), as for our method.
+- **Unchanged from the official code:** gate architecture and init, detached gate input, vector output scaling, padding/EOS handling, the training-time percentile ramp (0 → 0.2 over 6,800 steps, threshold 1.0 → 0.999) and the L2 loss. Unit tests check the ramp threshold and gate init against the official functions extracted from the pinned clone.
+- **Reason:** without this, GateSkip has no bs=1 decode savings, so a matched-compute comparison at bs=1 (D-05) would be meaningless. Using the same calibration for both methods means differences come from the routers, not the thresholding.
+- **Reporting:** state this adaptation wherever GateSkip-exactKV numbers appear. The native batch-quantile mode is reported only in the D-12(c) reproduction check (E1-official).
+- **Cost note:** the vector gates are two Linear(H, H) per layer and run for every token: 2H² MACs per layer, about 13.7% of a dense Llama-3.2-1B layer at n = 128 (FLOP report). Our counter includes this when matching budgets.
+- **Status:** active.

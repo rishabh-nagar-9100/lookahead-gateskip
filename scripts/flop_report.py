@@ -37,16 +37,20 @@ def main() -> None:
             "router_macs": costs.router,
             "router_overhead_frac": costs.router_overhead(n),
             "mlp_share_of_dense": costs.mlp / dense,
+            # GateSkip port (D-18): two Linear(H, H) vector gates per layer, run for every token
+            "gateskip_vector_gate_macs": 2 * costs.dims.hidden ** 2,
+            "gateskip_vector_gate_frac": 2 * costs.dims.hidden ** 2 / dense,
         })
     run_dir = create_run_dir(cfg, args.seed, cfg["name"])
     save_json({"model": cfg["model"], "bottleneck": router.bottleneck, "per_layer_per_token": rows},
               run_dir / "metrics.json")
     print(f"[flop_report] {cfg['model']}  router = {costs.router:,} MACs/token/layer")
-    print(f"{'n':>6} {'dense MACs':>13} {'router %':>9} {'MLP %':>7} {'T1 %':>7} {'T2 %':>7} {'T3 %':>7}")
+    print(f"{'n':>6} {'dense MACs':>13} {'router %':>9} {'MLP %':>7} {'T1 %':>7} {'T2 %':>7} {'T3 %':>7} {'GS gates %':>11}")
     for r in rows:
         print(f"{r['context_length']:>6} {r['dense_macs']:>13,.0f} {100 * r['router_overhead_frac']:>9.3f} "
               f"{100 * r['mlp_share_of_dense']:>7.1f} {100 * r['tier1_frac_of_dense']:>7.1f} "
-              f"{100 * r['tier2_frac_of_dense']:>7.1f} {100 * r['tier3_frac_of_dense']:>7.1f}")
+              f"{100 * r['tier2_frac_of_dense']:>7.1f} {100 * r['tier3_frac_of_dense']:>7.1f} "
+              f"{100 * r['gateskip_vector_gate_frac']:>11.1f}")
     print(f"[flop_report] -> {run_dir / 'metrics.json'}")
 
 

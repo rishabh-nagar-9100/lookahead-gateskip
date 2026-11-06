@@ -77,29 +77,49 @@ class TieredCache:
 
 # ----- policies --------------------------------------------------------------------------------
 class Policy(Protocol):
-    router_cost: str  # "lagate" or "none", for the FLOP counter
+    needs_mlp_input: bool  # True: ``mlp`` receives post_attention_layernorm(h') for every row
 
     def attn(self, layer: int, n: torch.Tensor, mu: torch.Tensor, pos: torch.Tensor) -> tuple[torch.Tensor, dict]:
-        """-> run_attn (T,) bool, ctx (passed to ``mlp``; may hold gates for scaling/logging)."""
+        """-> run_attn (T,) bool, ctx (passed to ``mlp``; may hold gates for scaling/logging).
+        ctx["g_layer"] / ctx["g_mlp"] (T,) are logged when present."""
 
-    def mlp(self, layer: int, ctx: dict, attn_out: torch.Tensor, run_attn: torch.Tensor) -> torch.Tensor:
+    def mlp(self, layer: int, ctx: dict, attn_out: torch.Tensor, run_attn: torch.Tensor,
+            mlp_in: torch.Tensor | None) -> torch.Tensor:
         """-> run_mlp (T,) bool. ``attn_out`` (T_attn, H) holds ΔAttn of the run_attn rows only."""
 
+    def attn_scale(self, ctx: dict, rows: torch.Tensor) -> torch.Tensor | None:
+        """Gate scaling for executed attention rows, (R, 1) or (R, H); None = unscaled."""
 
-class DensePolicy:
-    router_cost = "none"
+    def mlp_scale(self, ctx: dict, rows: torch.Tensor) -> torch.Tensor | None: ...
 
+    def router_macs(self, costs: LayerCosts, run_attn: bool) -> float:
+        """Router/gate MACs for one token at one layer."""
+
+
+class _NoScale:
+    needs_mlp_input = False
+
+    def attn_scale(self, ctx, rows):
+        return None
+
+    def mlp_scale(self, ctx, rows):
+        return None
+
+
+class DensePolicy(_NoScale):
     def attn(self, layer, n, mu, pos):
         return torch.ones(n.shape[1], dtype=torch.bool, device=n.device), {}
 
-    def mlp(self, layer, ctx, attn_out, run_attn):
+    def mlp(self, layer, ctx, attn_out, run_attn, mlp_in):
         return run_attn.clone()
 
+    def router_macs(self, costs, run_attn):
+        return 0.0
 
-class FixedTierPolicy:
-    """Tiers given per absolute position and layer: ``tiers[pos, layer]`` in {1, 2, 3}. For tests."""
 
-    router_cost = "lagate"
+class FixedTierPolicy(_NoScale):
+    """Tiers given per absolute position and layer: ``tiers[pos, layer]`` in {1, 2, 3}. For tests.
+    Counted with our router's cost, so FLOPs equal LayerCosts.tier()."""
 
     def __init__(self, tiers: torch.Tensor):
         self.tiers = tiers
@@ -107,15 +127,18 @@ class FixedTierPolicy:
     def attn(self, layer, n, mu, pos):
         return self.tiers[pos, layer] <= 2, {"tier": self.tiers[pos, layer]}
 
-    def mlp(self, layer, ctx, attn_out, run_attn):
+    def mlp(self, layer, ctx, attn_out, run_attn, mlp_in):
         return ctx["tier"] == 1
+
+    def router_macs(self, costs, run_attn):
+        return costs.router_layer_head + (costs.router_mlp_head if run_attn else 0)
 
 
 class LagatePolicy:
     """Our router with calibrated thresholds: Tier 1 if g_L > τ_L and g_M > τ_M; Tier 2 if g_L > τ_L
     and g_M ≤ τ_M; Tier 3 if g_L ≤ τ_L. g_M is computed only for rows where attention ran."""
 
-    router_cost = "lagate"
+    needs_mlp_input = False
 
     def __init__(self, routers: list[DualHeadRouter], tau_layer, tau_mlp):
         self.routers = routers
@@ -127,13 +150,22 @@ class LagatePolicy:
         g_l, z = self.routers[layer].layer_gate(n[0], mu[0])
         return g_l > self.tau_layer[layer], {"g_layer": g_l, "z": z}
 
-    def mlp(self, layer, ctx, attn_out, run_attn):
+    def mlp(self, layer, ctx, attn_out, run_attn, mlp_in):
         T = run_attn.shape[0]
         g_m = torch.full((T,), float("nan"), dtype=attn_out.dtype, device=attn_out.device)
         if run_attn.any():
             g_m[run_attn] = self.routers[layer].mlp_gate(ctx["z"][run_attn], attn_out)
         ctx["g_mlp"] = g_m
         return run_attn & (g_m > self.tau_mlp[layer])
+
+    def attn_scale(self, ctx, rows):
+        return ctx["g_layer"][rows].unsqueeze(-1)
+
+    def mlp_scale(self, ctx, rows):
+        return (ctx["g_layer"][rows] * ctx["g_mlp"][rows]).unsqueeze(-1)
+
+    def router_macs(self, costs, run_attn):
+        return costs.router_layer_head + (costs.router_mlp_head if run_attn else 0)
 
 
 def _per_layer(tau, L: int) -> list[float]:
@@ -217,16 +249,17 @@ class TieredEngine:
             if rows.numel():
                 q = ad.q(layer, n[:, rows], cos[:, rows], sin[:, rows])
                 attn_rows = ad.attend(layer, q, k_all, v_all, pos[rows], k_pos)[0]  # (R, H)
-                scale = ctx["g_layer"][rows].unsqueeze(-1) if self.cfg.gate_scaling and "g_layer" in ctx else 1.0
-                h[0, rows] = h[0, rows] + scale * attn_rows
+                scale = pol.attn_scale(ctx, rows) if self.cfg.gate_scaling else None
+                h[0, rows] = h[0, rows] + (attn_rows if scale is None else scale * attn_rows)
 
-            run_mlp = pol.mlp(layer, ctx, attn_rows, run_attn)
+            mlp_in = ad.post_norm(layer, h)[0] if pol.needs_mlp_input else None  # (T, H)
+            run_mlp = pol.mlp(layer, ctx, attn_rows, run_attn, mlp_in)
             mrows = run_mlp.nonzero(as_tuple=True)[0]
             if mrows.numel():
-                out = ad.mlp(layer, ad.post_norm(layer, h[:, mrows]))[0]
-                if self.cfg.gate_scaling and "g_mlp" in ctx:
-                    out = (ctx["g_layer"][mrows] * ctx["g_mlp"][mrows]).unsqueeze(-1) * out
-                h[0, mrows] = h[0, mrows] + out
+                x = mlp_in[mrows][None] if mlp_in is not None else ad.post_norm(layer, h[:, mrows])
+                out = ad.mlp(layer, x)[0]
+                scale = pol.mlp_scale(ctx, mrows) if self.cfg.gate_scaling else None
+                h[0, mrows] = h[0, mrows] + (out if scale is None else scale * out)
 
             self._account(run_attn, run_mlp, ctx_lens)
             if self.layer_hooks:
@@ -246,7 +279,7 @@ class TieredEngine:
     def _account(self, run_attn: torch.Tensor, run_mlp: torch.Tensor, ctx_lens: list[int]) -> None:
         c, s = self.costs, self.stats
         for a, m, n in zip(run_attn.tolist(), run_mlp.tolist(), ctx_lens):
-            s.macs += c.module_macs(a, m, n, router=self.policy.router_cost)
+            s.macs += c.module_macs(a, m, n, router="none") + self.policy.router_macs(c, a)
             s.dense_macs += c.dense(n)
             s.tier_counts[1 if a and m else 2 if a else 0 if m else 3] += 1
 

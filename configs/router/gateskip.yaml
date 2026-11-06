@@ -1,0 +1,11 @@
+# GateSkip port (D-16, D-18), job GateSkip-separate-vector at commit 8d56513 (jobs/job_common.sh:20-33,
+# GatingConfig.py). Loaded by lagate.routing.gateskip.GateSkipConfig.from_dict.
+gate_dim: vector            # Linear(H, H) per module; 1 = scalar variant
+gate_init_std: 0.01
+bias_init: 5.0
+sparsity_loss_weight: 1.0   # --sparsity-loss-weight 1.0, L2
+start_thr_percentile: 0.0   # --start-thr-percentile 0.0
+end_thr_percentile: 0.2     # --end-thr-percentile 0.2
+num_increasing_steps: 6800  # --num-increasing-steps 6800
+skip_module_types: [attn, mlp]
+invalid_token_ids: []       # set to [pad_id, eos_id] of the tokenizer at training time (DefaultLightningModule.py:124-126)

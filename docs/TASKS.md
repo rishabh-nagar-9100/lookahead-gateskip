@@ -39,7 +39,7 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [x] P2-06 FLOP counter (per token, per tier) + router-overhead report — `lagate/engine/flops.py`, `scripts/flop_report.py`; router 0.57–0.64% of a dense layer (Llama), 0.56–0.63% (Qwen)
 - [ ] P2-07 Tests T-EQ, T-KV, T-T3, T-FLOP, T-EMA green on CPU and GPU — **CPU: all green** on tiny random Llama + Qwen2 (107 tests, ≈5 s; T-KV/T-T3 in fp64, D-17). GPU run waits on P0-02
 - [ ] P2-08 Training smoke run (20 steps)
-- [ ] P2-09 GateSkip port `lagate/routing/gateskip.py` (vector gate on module input, L2 loss averaged over modules, percentile ramp, gate scaling at inference) with a hand-calculation unit test (D-16)
+- [x] P2-09 GateSkip port `lagate/routing/gateskip.py` (vector gate on module input, L2 loss averaged over modules, percentile ramp, gate scaling at inference) with a hand-calculation unit test (D-16) — `lagate/routing/gateskip.py` (GateSkipModel training forward, GateSkipPolicy for the engine), `lagate/calibration/ecdf.py`, `configs/router/gateskip.yaml`; calibrated fixed thresholds (D-18); tests incl. official-code cross-checks
 - [ ] P2-10 Engine option `kv_mode: exact | copy_prev`. `copy_prev` copies layer ℓ−1's cache entry into layer ℓ for skipped tokens (GateSkip's intended behaviour), for E1-copyKV (D-16)
 
 ## Phase 3 – Training & calibration
