@@ -91,3 +91,15 @@ Format: ID · date · decision · alternatives considered · reason · status (a
   - (c) Both use full fine-tuning. Fair and strong, but needs ≥ 40–80 GB VRAM.
 - **Lean:** (b) for the main comparison plus (a) for GateSkip as a reference row. The final choice depends on the GPU (P0-02).
 - **Decide in:** P3-01, once GPU details are known.
+
+### D-14 · 2026-11-06 · proposed · Dense reference under D-11 = fine-tuned model at 0% skip; untrained dense is reported under D-08 only
+- **Evidence:** run `20261106-060855_gsm8k_zs_dense_qwen_s0`. Untrained Qwen2.5-1.5B-Instruct under D-11 scored 0.0% strict and 16.0% flexible on 50 problems; 0/50 outputs used `#### N`, and 40% ran to the 512-token cap. The same model scored 62.0% on the same 50 problems under D-08. Without the chat template the Instruct model never emits an end-of-turn token, so it runs on after answering.
+- **What is wrong in D-11:** its "dense included" consequence. D-11 is right for trained models, which learn `#### N` + EOS from the D-06 data, but useless for an untouched Instruct model. GateSkip's "0% skip" point is likewise the fine-tuned gated model with no skipping, not the original pretrained model.
+- **Proposed change:**
+  - (a) Under D-11, the 0%-budget dense reference for each method is the model **after training** with all modules executed. For ours that's LoRA + routers with gates forced open; for GateSkip it's the fine-tuned model at skip ratio 0.
+  - (b) The untouched dense Instruct model is reported under D-08 as "original model" context (E0).
+  - (c) E0's D-11 row stays as evidence, but isn't used as a baseline.
+- **Alternatives:**
+  - Apply the chat template under D-11 too. That changes GateSkip's format, so trained models would then be evaluated on a format they weren't trained on.
+  - Add `####` few-shot exemplars. That mixes in-context learning into a 0-shot protocol.
+- **Status:** proposed; Rishabh to confirm. Until then, nothing is reported as "dense" under D-11.

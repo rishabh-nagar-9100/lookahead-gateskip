@@ -1,0 +1,23 @@
+name: gsm8k_zs_dense_qwen
+protocol: D-11
+model:
+  pretrained: Qwen/Qwen2.5-1.5B-Instruct
+  device: auto
+  dtype: auto
+  dtype_by_device:
+    cuda: bfloat16
+    mps: float16
+    cpu: float32
+eval:
+  tasks:
+  - gsm8k
+  num_fewshot: 0
+  apply_chat_template: false
+  fewshot_as_multiturn: false
+  batch_size: 1
+  limit: 50
+  gen_kwargs:
+    do_sample: false
+    max_gen_toks: 512
+  log_samples: true
+  primary_metric: exact_match,strict-match

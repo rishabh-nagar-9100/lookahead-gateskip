@@ -14,6 +14,16 @@ Newest entry first. One entry per work session. Keep it short and factual.
 
 ---
 
+### 2026-11-06 · D-11 eval configs + smoke run · P0-10
+**Done:**
+- Added `configs/eval/gsm8k_zs_dense_{llama,qwen}.yaml` (D-11) and tagged every eval config with `protocol: D-08|D-11`.
+- The config test now checks each config against its declared protocol (8 tests pass).
+- `eval_dense.py` now logs `frac_hit_max_gen_toks`, de-duplicated per document.
+- Registered and ran the 50-problem Qwen smoke run (Llama still gated; no new downloads, `HF_HUB_OFFLINE=1`).
+**Results / numbers:** `20261106-060855_gsm8k_zs_dense_qwen_s0`: 0.0% strict / 16.0% flexible. Avg output 352 tokens; 40% of outputs hit the 512 cap; 0/50 contain `#### N`. Generation 14:06 (≈17 s/problem). Same 50 problems under D-08: 62.0%.
+**Problems:** without a chat template, the untrained Instruct model answers and then runs on (no end-of-turn token). D-11 is therefore only meaningful for models trained on the D-06 format. I proposed D-14: the dense reference under D-11 is the trained model at 0% skip, and untrained dense is reported under D-08. The run took 14.4 min, close to the 15-min limit; slower than D-08 because the outputs are longer.
+**Next:** Rishabh to confirm D-14; Llama access (P0-01); GPU (P0-02).
+
 ### 2026-11-06 · GateSkip code review · P0-06 fix, P0-07
 **Done:**
 - `git_info` now marks a run dirty for any change except untracked files under `results/`, with a new test (6 tests pass).

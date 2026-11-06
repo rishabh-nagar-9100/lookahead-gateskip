@@ -15,7 +15,7 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
   - its stack needs CUDA (torch 2.8 cu12, flash-attn, vLLM) and Python 3.10 in a separate env (P0-02 GPU);
   - its main model is base `meta-llama/Llama-3.2-1B`, also gated (P0-01);
   - installing its dependencies is waiting on Rishabh's OK.
-- [ ] P0-10 Add D-11 eval configs (lm-eval `gsm8k`, 0-shot, no chat template, greedy, 512 tokens) and re-run the dense 50-problem smoke test with them
+- [x] P0-10 Add D-11 eval configs (lm-eval `gsm8k`, 0-shot, no chat template, greedy, 512 tokens) and re-run the dense 50-problem smoke test with them. Configs `gsm8k_zs_dense_{llama,qwen}.yaml` + protocol test; run `20261106-060855_gsm8k_zs_dense_qwen_s0` gave 0.0% strict / 16.0% flexible (degenerate for an untrained Instruct model, D-14 proposed)
 - [ ] P0-08 Confirm review dates with guide; fill them into PROJECT_PLAN.md
 - [ ] P0-09 Optional: Weights & Biases project for run tracking
 
