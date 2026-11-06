@@ -14,6 +14,16 @@ Newest entry first. One entry per work session. Keep it short and factual.
 
 ---
 
+### 2026-11-06 · D-21 pure greedy · E0 re-run
+**Done:** D-21 active. `repetition_penalty: 1.0` added to all six eval configs, a protocol test enforces it, and the three earlier Qwen runs are flagged as penalty-1.1 in EXPERIMENTS.md. Re-ran the Qwen 50-problem D-08 smoke.
+**Results / numbers:** `20261106-182046_gsm8k_dense_qwen_s0`:
+- 62.0% strict / 62.0% flexible (same as the penalty-1.1 run); robust 68.0%.
+- Avg 128 tokens (was 143); 1 cap hit (long algebra, not a loop); 360 s.
+- 0/50 outputs identical to the old run, confirming the penalty really was applied before. 10 correctness flips, 5 each way.
+- lm-eval's logged generation_kwargs now include repetition_penalty 1.0.
+**Problems:** none. At n = 50 the ±6.9-pt stderr hides any accuracy effect of the penalty.
+**Next:** check Llama's generation_config when access arrives; push once the URL arrives.
+
 ### 2026-11-06 · Engine speed · P5-05
 **Done:**
 - Engine hot path rewritten:
