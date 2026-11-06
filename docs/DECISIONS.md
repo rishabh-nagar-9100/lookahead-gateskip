@@ -54,6 +54,7 @@ Format: ID · date · decision · alternatives considered · reason · status (a
 ### D-10 · 2026-11-06 · CI installs only CPU test dependencies
 - **Alternatives:** install the full `requirements.txt` in CI.
 - **Reason:** the full set pulls CUDA torch and lm-eval (slow, large) although the CPU tests import only torch, transformers, pyyaml and python-dotenv. CI uses the CPU-only torch wheel and `pip install -e . --no-deps`. If a test later needs another package, add it to the workflow.
+- **Update (2026-11-07):** first CI run on GitHub failed because the LoRA training test imports `peft`, which CI did not install. CI now installs peft too, and every CI package is pinned to `requirements.lock.txt`.
 - **Status:** active.
 
 ### D-11 · 2026-11-06 · Primary GSM8K protocol = GateSkip's format (0-shot "Question/Answer … #### N"), full test set
