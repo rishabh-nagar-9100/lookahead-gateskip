@@ -1,0 +1,25 @@
+# E0: dense baseline, GSM8K, Llama-3.2-1B-Instruct.
+# Protocol: docs/EXPERIMENTS.md (8-shot CoT, greedy, max 512 new tokens). Task choice: DECISIONS D-08.
+name: gsm8k_dense_llama
+
+model:
+  pretrained: meta-llama/Llama-3.2-1B-Instruct
+  device: auto            # auto -> cuda, else mps, else cpu
+  dtype: auto             # auto -> dtype_by_device below
+  dtype_by_device:
+    cuda: bfloat16
+    mps: float16          # MPS bf16 coverage is incomplete (docs/SETUP.md)
+    cpu: float32
+
+eval:
+  tasks: [gsm8k_cot_llama]
+  num_fewshot: 8
+  apply_chat_template: true
+  fewshot_as_multiturn: true
+  batch_size: 1
+  limit: null             # null = full test set (1,319); override with --limit
+  gen_kwargs:
+    do_sample: false      # greedy
+    max_gen_toks: 512
+  log_samples: true       # raw generations go to results/raw/<run_id>/ (git-ignored)
+  primary_metric: exact_match,flexible-extract
