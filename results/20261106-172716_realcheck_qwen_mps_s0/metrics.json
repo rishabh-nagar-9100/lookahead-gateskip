@@ -1,0 +1,200 @@
+{
+  "dims": {
+    "config_json": {
+      "num_layers": 28,
+      "hidden": 1536,
+      "intermediate": 8960,
+      "n_heads": 12,
+      "n_kv_heads": 2,
+      "head_dim": 128,
+      "vocab": 151936
+    },
+    "ours": {
+      "num_layers": 28,
+      "hidden": 1536,
+      "intermediate": 8960,
+      "n_heads": 12,
+      "n_kv_heads": 2,
+      "head_dim": 128,
+      "vocab": 151936
+    },
+    "match": true
+  },
+  "prompt_tokens": [
+    117,
+    78,
+    109
+  ],
+  "teq": {
+    "float32": {
+      "per_prompt": [
+        {
+          "prompt_tokens": 117,
+          "max_abs_diff_adapter": 0.0,
+          "max_abs_diff_engine": 0.0,
+          "max_abs_logit": 36.08085632324219,
+          "argmax_agree_frac": 1.0
+        },
+        {
+          "prompt_tokens": 78,
+          "max_abs_diff_adapter": 0.0,
+          "max_abs_diff_engine": 0.0,
+          "max_abs_logit": 33.86460876464844,
+          "argmax_agree_frac": 1.0
+        },
+        {
+          "prompt_tokens": 109,
+          "max_abs_diff_adapter": 0.0,
+          "max_abs_diff_engine": 0.0,
+          "max_abs_logit": 33.37116241455078,
+          "argmax_agree_frac": 1.0
+        }
+      ],
+      "max_abs_diff": 0.0
+    },
+    "float16": {
+      "per_prompt": [
+        {
+          "prompt_tokens": 117,
+          "max_abs_diff_adapter": 0.0,
+          "max_abs_diff_engine": 0.0,
+          "max_abs_logit": 36.0625,
+          "argmax_agree_frac": 1.0
+        },
+        {
+          "prompt_tokens": 78,
+          "max_abs_diff_adapter": 0.0,
+          "max_abs_diff_engine": 0.0,
+          "max_abs_logit": 33.8125,
+          "argmax_agree_frac": 1.0
+        },
+        {
+          "prompt_tokens": 109,
+          "max_abs_diff_adapter": 0.0,
+          "max_abs_diff_engine": 0.0,
+          "max_abs_logit": 33.375,
+          "argmax_agree_frac": 1.0
+        }
+      ],
+      "max_abs_diff": 0.0
+    }
+  },
+  "latency": {
+    "new_tokens": 64,
+    "per_prompt": [
+      {
+        "prompt_tokens": 117,
+        "hf_sdpa": {
+          "median_ms_per_token": 35.98425260940985,
+          "runs_ms_per_token": [
+            34.67071028126156,
+            35.98425260940985,
+            36.402358734335394,
+            36.28031835933143,
+            35.6298392031249
+          ]
+        },
+        "engine_dense": {
+          "median_ms_per_token": 82.19858203131025,
+          "runs_ms_per_token": [
+            81.73995312506577,
+            83.68896550007321,
+            82.0160520781883,
+            83.7979765625505,
+            82.19858203131025
+          ]
+        }
+      },
+      {
+        "prompt_tokens": 78,
+        "hf_sdpa": {
+          "median_ms_per_token": 33.68220117192777,
+          "runs_ms_per_token": [
+            33.68220117192777,
+            34.95294401557203,
+            34.56487629694038,
+            33.66786132812649,
+            33.516489578119035
+          ]
+        },
+        "engine_dense": {
+          "median_ms_per_token": 83.06765234374325,
+          "runs_ms_per_token": [
+            85.39012695302972,
+            85.21784310937619,
+            81.20973176562529,
+            81.5679003906098,
+            83.06765234374325
+          ]
+        }
+      },
+      {
+        "prompt_tokens": 109,
+        "hf_sdpa": {
+          "median_ms_per_token": 34.93631118749363,
+          "runs_ms_per_token": [
+            34.35981120321685,
+            34.2606354063264,
+            35.42958332809576,
+            34.93631118749363,
+            34.978256500039606
+          ]
+        },
+        "engine_dense": {
+          "median_ms_per_token": 83.48066145310895,
+          "runs_ms_per_token": [
+            81.30077865621388,
+            85.16639062497688,
+            83.48066145310895,
+            84.02049870312567,
+            82.59171157817491
+          ]
+        }
+      }
+    ],
+    "ratio_engine_over_hf_sdpa": 2.3776881279177378
+  },
+  "generate_match": {
+    "hf_generation_config": {
+      "do_sample": true,
+      "temperature": 0.7,
+      "top_k": 20,
+      "top_p": 0.8,
+      "repetition_penalty": 1.1
+    },
+    "hf_default_config": [
+      {
+        "identical": false,
+        "first_divergence": 9,
+        "n_tokens": 64
+      },
+      {
+        "identical": false,
+        "first_divergence": 2,
+        "n_tokens": 64
+      },
+      {
+        "identical": false,
+        "first_divergence": 2,
+        "n_tokens": 64
+      }
+    ],
+    "hf_pure_greedy": [
+      {
+        "identical": true,
+        "first_divergence": null,
+        "n_tokens": 64
+      },
+      {
+        "identical": true,
+        "first_divergence": null,
+        "n_tokens": 64
+      },
+      {
+        "identical": true,
+        "first_divergence": null,
+        "n_tokens": 64
+      }
+    ]
+  }
+}

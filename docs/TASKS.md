@@ -37,7 +37,7 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [x] P2-04 Soft-gated training forward pass — `lagate/models/gated.py` (LookaheadGatedModel, CE + λ·L_S, right padding); T-EQ in `tests/test_gated_forward.py`
 - [x] P2-05 Three-tier inference engine with exact Tier-3 K,V — `lagate/engine/tiered.py` (bs=1, own KV+EMA cache, policies: Lagate/Dense/FixedTier), `configs/engine/lagate.yaml`; T-KV, T-T3 in `tests/test_engine.py`
 - [x] P2-06 FLOP counter (per token, per tier) + router-overhead report — `lagate/engine/flops.py`, `scripts/flop_report.py`; router 0.57–0.64% of a dense layer (Llama), 0.56–0.63% (Qwen)
-- [ ] P2-07 Tests T-EQ, T-KV, T-T3, T-FLOP, T-EMA green on CPU and GPU — **CPU: all green** on tiny random Llama + Qwen2 (107 tests, ≈5 s; T-KV/T-T3 in fp64, D-17). GPU run waits on P0-02
+- [ ] P2-07 Tests T-EQ, T-KV, T-T3, T-FLOP, T-EMA green on CPU and GPU — **CPU: all green** on tiny random Llama + Qwen2 (132 tests; T-KV/T-T3 in fp64, D-17). **MPS, real Qwen2.5-1.5B:** dims = config.json, T-EQ max abs diff 0.0 in fp32 and fp16, dense engine = HF pure greedy on 3 GSM8K prompts (run `20261106-172716_realcheck_qwen_mps_s0`). Llama (access) and CUDA (P0-02) pending
 - [x] P2-08 Training smoke run (20 steps) — `lagate/training/loop.py` + `scripts/train.py`, 4 runs (ours, GateSkip × tiny Llama, Qwen2), see EXPERIMENTS run log
 - [x] P2-09 GateSkip port `lagate/routing/gateskip.py` (vector gate on module input, L2 loss averaged over modules, percentile ramp, gate scaling at inference) with a hand-calculation unit test (D-16) — `lagate/routing/gateskip.py` (GateSkipModel training forward, GateSkipPolicy for the engine), `lagate/calibration/ecdf.py`, `configs/router/gateskip.yaml`; calibrated fixed thresholds (D-18); tests incl. official-code cross-checks
 - [ ] P2-10 *(optional, low priority)* Engine option `kv_mode: copy_prev`: copy layer ℓ−1's cache entry into layer ℓ for skipped tokens. GateSkip's copy never runs (LITERATURE.md, claim 2), so this would only test an idea no published method uses. Do it only if time allows after Phase 4 (E1-copyKV)
@@ -65,7 +65,8 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [ ] P4-06 D-12(c): our GateSkip port vs official code (base Llama-3.2-1B, native format, 0% and 15%), on the GPU (D-16)
 
 ## Phase 5 – Latency
-- [ ] P5-01 Batch-size-1 decode harness (warm-up, CUDA sync, median of N runs)
+- [ ] P5-01 Batch-size-1 decode harness (warm-up, CUDA sync, median of N runs) — first pass in `scripts/real_model_checks.py` (MPS): dense engine 2.38× slower than HF (83.1 vs 34.9 ms/token)
+- [ ] P5-05 *(proposed, before Phase 3)* Engine speed: deferred on-device FLOP accounting, dense/no-skip fast path, static preallocated KV cache + cached RoPE/positions, last-position logits only; then torch.compile (MPS prototype) / CUDA graphs on GPU. Target ≤ 1.3× HF in dense mode
 - [ ] P5-02 E11 CUDA latency for all methods; torch.compile / CUDA graphs variants
 - [ ] P5-03 E11 Apple MPS latency
 - [ ] P5-04 Output-length and time-per-problem analysis

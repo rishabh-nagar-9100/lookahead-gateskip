@@ -14,6 +14,25 @@ Newest entry first. One entry per work session. Keep it short and factual.
 
 ---
 
+### 2026-11-06 · Gaps, gate-cost check, real-model checks on MPS · P0-07, P2-07, P5-01
+**Done:**
+- G1–G6 written into PAPER_PLAN.md (Research gaps) and linked from DECISIONS (D-19, D-20). FlexiDepth / D-LLM marked verified (Rishabh checked the papers).
+- GateSkip gate cost verified in code (`GateLayer.py:34`, `ModelAdapter.py:72–76, 102–111`): Linear(H, H) per module, run on every token, = 2H² MACs per layer = 13.7% of a dense Llama-1B layer.
+  - Their "compute saved" is a token-skip fraction that ignores the gates (`DefaultLightningModule.py:138–142`, `compare_results.py:19–25`).
+  - The paper reports parameter overhead only. Its Table 13 prints 4.06% (H = 1024, L = 24), but Llama-3.2-1B dims give 10.8%.
+- 300-step diagnostic re-run through `scripts/train.py` and registered (not for reporting; numbers identical to the scratchpad run).
+- `scripts/real_model_checks.py` on the cached Qwen2.5-1.5B (MPS, no downloads).
+**Results / numbers** (run `20261106-172716_realcheck_qwen_mps_s0`):
+- Dims = config.json.
+- T-EQ full scale: max abs diff 0.0 in fp32 and fp16.
+- Dense engine = HF pure greedy on 3/3 GSM8K prompts × 64 tokens.
+- bs=1 fp16 latency: HF 34.9 ms/token vs dense engine 83.1, so **2.38× slower**. Ablation (scratchpad): FLOP accounting ≈ 13 ms/token, row indexing and host syncs ≈ 18 ms/token; a plain dense loop reaches 54.5 vs HF 37.2.
+**Problems:**
+- **Bug fixed:** our eager attention overflowed fp16 on Qwen2.5 (q·kᵀ = inf at layer 0 → NaN; HF eager does the same). The adapter now uses SDPA, as HF's default does. Tiny fixtures were switched to sdpa so T-EQ compares like with like.
+- **Protocol issue (D-21 proposed):** Qwen's generation_config applies repetition_penalty 1.1 even under greedy, and lm-eval doesn't reset it. Our earlier Qwen GSM8K numbers used it.
+- HF timings varied 54 → 35 ms/token across sessions (thermal/background?), so treat single-session ratios with care.
+**Next:** decide D-21; P5-05 engine speed fixes (proposed) before Phase 3; push once the GitHub URL arrives.
+
 ### 2026-11-06 · GateSkip port, training loop, gap revision · P2-09, P2-08, P3-02 (part)
 **Done:**
 - P2-09 GateSkip port (`lagate/routing/gateskip.py`): faithful training forward (vector gates on detached module inputs, output scaling, padding/EOS importance 1, percentile ramp, L2 loss) and `GateSkipPolicy` for the engine. Fixed per-module thresholds from the calibration-split empirical CDF (`lagate/calibration/ecdf.py`), recorded as a documented adaptation (D-18) with the `threshold_finder.py` evidence. Tests cross-check the ramp threshold and gate init against the official functions, and show their batch quantile skips 0 of 400 decode tokens at bs=1 while calibrated thresholds skip ≈ 25%.

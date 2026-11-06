@@ -1,0 +1,174 @@
+{
+  "dims": {
+    "config_json": {
+      "num_layers": 28,
+      "hidden": 1536,
+      "intermediate": 8960,
+      "n_heads": 12,
+      "n_kv_heads": 2,
+      "head_dim": 128,
+      "vocab": 151936
+    },
+    "ours": {
+      "num_layers": 28,
+      "hidden": 1536,
+      "intermediate": 8960,
+      "n_heads": 12,
+      "n_kv_heads": 2,
+      "head_dim": 128,
+      "vocab": 151936
+    },
+    "match": true
+  },
+  "prompt_tokens": [
+    117,
+    78,
+    109
+  ],
+  "teq": {
+    "float32": {
+      "per_prompt": [
+        {
+          "prompt_tokens": 117,
+          "max_abs_diff_adapter": 0.0,
+          "max_abs_diff_engine": 0.0,
+          "max_abs_logit": 36.08085632324219,
+          "argmax_agree_frac": 1.0
+        },
+        {
+          "prompt_tokens": 78,
+          "max_abs_diff_adapter": 0.0,
+          "max_abs_diff_engine": 0.0,
+          "max_abs_logit": 33.86460876464844,
+          "argmax_agree_frac": 1.0
+        },
+        {
+          "prompt_tokens": 109,
+          "max_abs_diff_adapter": 0.0,
+          "max_abs_diff_engine": 0.0,
+          "max_abs_logit": 33.37116241455078,
+          "argmax_agree_frac": 1.0
+        }
+      ],
+      "max_abs_diff": 0.0
+    },
+    "float16": {
+      "per_prompt": [
+        {
+          "prompt_tokens": 117,
+          "max_abs_diff_adapter": 0.0,
+          "max_abs_diff_engine": 0.0,
+          "max_abs_logit": 36.0625,
+          "argmax_agree_frac": 1.0
+        },
+        {
+          "prompt_tokens": 78,
+          "max_abs_diff_adapter": 0.0,
+          "max_abs_diff_engine": 0.0,
+          "max_abs_logit": 33.8125,
+          "argmax_agree_frac": 1.0
+        },
+        {
+          "prompt_tokens": 109,
+          "max_abs_diff_adapter": 0.0,
+          "max_abs_diff_engine": 0.0,
+          "max_abs_logit": 33.375,
+          "argmax_agree_frac": 1.0
+        }
+      ],
+      "max_abs_diff": 0.0
+    }
+  },
+  "latency": {
+    "new_tokens": 64,
+    "per_prompt": [
+      {
+        "prompt_tokens": 117,
+        "hf_sdpa": {
+          "median_ms_per_token": 53.68595962499967,
+          "runs_ms_per_token": [
+            55.24886653131489,
+            53.68595962499967,
+            53.72459570310184,
+            42.1866334530705,
+            39.428268234360075
+          ]
+        },
+        "engine_dense": {
+          "median_ms_per_token": 87.03523437498006,
+          "runs_ms_per_token": [
+            86.78038801565435,
+            87.09679035928275,
+            87.13322917185451,
+            87.03523437498006,
+            86.79445573443445
+          ]
+        }
+      },
+      {
+        "prompt_tokens": 78,
+        "hf_sdpa": {
+          "median_ms_per_token": 38.804415359322775,
+          "runs_ms_per_token": [
+            39.5331607968501,
+            38.39231640631624,
+            38.915296218760886,
+            38.804415359322775,
+            38.55399282804228
+          ]
+        },
+        "engine_dense": {
+          "median_ms_per_token": 86.15282096877763,
+          "runs_ms_per_token": [
+            85.9191783905544,
+            86.57584960940312,
+            86.15282096877763,
+            86.11072201563275,
+            86.34805795304601
+          ]
+        }
+      },
+      {
+        "prompt_tokens": 109,
+        "hf_sdpa": {
+          "median_ms_per_token": 40.03521289064338,
+          "runs_ms_per_token": [
+            45.29836132815035,
+            40.24922656253693,
+            39.464981124979204,
+            40.03521289064338,
+            37.65952670312345
+          ]
+        },
+        "engine_dense": {
+          "median_ms_per_token": 86.90898567181193,
+          "runs_ms_per_token": [
+            84.05456835930636,
+            90.22037629688384,
+            81.80363217184095,
+            86.90898567181193,
+            90.05777018739991
+          ]
+        }
+      }
+    ],
+    "ratio_engine_over_hf_sdpa": 2.1708136262246134
+  },
+  "generate_match": [
+    {
+      "identical": false,
+      "first_divergence": 9,
+      "n_tokens": 64
+    },
+    {
+      "identical": false,
+      "first_divergence": 2,
+      "n_tokens": 64
+    },
+    {
+      "identical": false,
+      "first_divergence": 2,
+      "n_tokens": 64
+    }
+  ]
+}
