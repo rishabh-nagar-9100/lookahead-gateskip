@@ -1,0 +1,69 @@
+# Task Tracker
+
+Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked (say why).
+Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation script`).
+
+## Phase 0 – Setup
+- [ ] P0-01 Request Hugging Face access to meta-llama/Llama-3.2-1B-Instruct; create read token
+- [ ] P0-02 Confirm GPU access (model, VRAM, hours/week); record in SETUP.md
+- [ ] P0-03 Create private GitHub repo with the README layout; add .gitignore (results/raw, checkpoints, .env)
+- [ ] P0-04 Create Python 3.11 env; install pinned requirements; record versions in SETUP.md
+- [ ] P0-05 CI: GitHub Actions running pytest on CPU with a tiny random model
+- [ ] P0-06 E0: dense Llama-3.2-1B-Instruct on GSM8K (50-problem smoke test, then full test set)
+- [ ] P0-07 Clone GateSkip, pin commit hash in baselines/README.md, run its example
+- [ ] P0-08 Confirm review dates with guide; fill them into PROJECT_PLAN.md
+- [ ] P0-09 Optional: Weights & Biases project for run tracking
+
+## Phase 1 – Pilot study
+- [ ] P1-01 E1: GateSkip on Llama-3.2-1B, GSM8K at 0/15/25/35% savings (use released checkpoint if available, else train with their config)
+- [ ] P1-02 Hook to log per-token, per-layer gate values and skip decisions during generation
+- [ ] P1-03 E2: error-token analysis script + token tagging (digits, operators, connectives, boilerplate)
+- [ ] P1-04 E3: adjacent-token gate correlation per layer (k = 1…8), plots
+- [ ] P1-05 Write pilot findings section in DEV_LOG; record go/no-go in DECISIONS.md
+- [ ] P1-06 R1 slides: pilot figures + implementation status
+
+## Phase 2 – Core implementation
+- [ ] P2-01 Model wrapper exposing per-layer attention / MLP / K,V projections for Llama and Qwen
+- [ ] P2-02 EMA memory module (prefill scan + decode recurrence) with unit tests
+- [ ] P2-03 Dual-head router module (shared bottleneck, g_L, g_M with ΔAttn input), bias init
+- [ ] P2-04 Soft-gated training forward pass
+- [ ] P2-05 Three-tier inference engine with exact Tier-3 K,V
+- [ ] P2-06 FLOP counter (per token, per tier) + router-overhead report
+- [ ] P2-07 Tests T-EQ, T-KV, T-T3, T-FLOP green on CPU and GPU
+- [ ] P2-08 Training smoke run (20 steps)
+
+## Phase 3 – Training & calibration
+- [ ] P3-01 Choose training data (match GateSkip's setup for fairness); log in DECISIONS.md
+- [ ] P3-02 Training loop: LoRA r=16 + routers, compute-weighted sparsity loss, budget schedule
+- [ ] P3-03 λ sweep (3–4 values) on Llama
+- [ ] P3-04 Calibration script: τ_L, τ_M from empirical CDF for 15/25/35%
+- [ ] P3-05 E4: main GSM8K result, 3 seeds
+
+## Phase 4 – Evaluation & ablations
+- [ ] P4-01 Baselines: GateSkip, FlexiDepth, D-LLM, FFN-skip (DiffSkip-style), random skip, at matched compute
+- [ ] P4-02 E5 full suite: GSM8K, ARC-Challenge, PIQA, MBPP
+- [ ] P4-03 E6 EMA off · E7 α sweep · E8 previous-token gate · E9 no ΔAttn / two tiers
+- [ ] P4-04 E10 Qwen2.5-1.5B replication
+- [ ] P4-05 R2 slides
+
+## Phase 5 – Latency
+- [ ] P5-01 Batch-size-1 decode harness (warm-up, CUDA sync, median of N runs)
+- [ ] P5-02 E11 CUDA latency for all methods; torch.compile / CUDA graphs variants
+- [ ] P5-03 E11 Apple MPS latency
+- [ ] P5-04 Output-length and time-per-problem analysis
+
+## Phase 6 – Paper
+- [ ] P6-01 Figures and tables from results/ via scripts (no manual numbers)
+- [ ] P6-02 Draft all sections (PAPER_PLAN.md)
+- [ ] P6-03 Final novelty check on arXiv (last 3 months)
+- [ ] P6-04 Guide review → arXiv preprint → journal submission
+- [ ] P6-05 R3 slides
+
+## Phase 7 – Final
+- [ ] P7-01 Demo app (dense vs ours, live tier heat-map)
+- [ ] P7-02 Reproducibility pass from a clean clone
+- [ ] P7-03 Department report in required format
+- [ ] P7-04 Final presentation
+
+## Blocked / waiting
+_(move items here with the reason and who you are waiting on)_

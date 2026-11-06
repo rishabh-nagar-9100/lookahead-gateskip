@@ -1,0 +1,22 @@
+# Secrets
+.env
+
+# Raw outputs, weights, tracking
+results/raw/
+checkpoints/
+*.safetensors
+wandb/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+build/
+dist/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
