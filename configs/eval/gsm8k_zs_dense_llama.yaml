@@ -22,5 +22,6 @@ eval:
   gen_kwargs:
     do_sample: false      # greedy
     max_gen_toks: 512
+    repetition_penalty: 1.0   # pure greedy (D-21): overrides the model generation_config (Qwen sets 1.1)
   log_samples: true       # raw generations go to results/raw/<run_id>/ (git-ignored)
   primary_metric: exact_match,strict-match

@@ -89,6 +89,8 @@ def test_eval_configs_follow_protocol(path):
         assert ev[key] == expected, f"{path.name}: eval.{key}={ev[key]!r}, expected {expected!r}"
     assert ev["gen_kwargs"]["do_sample"] is False
     assert ev["gen_kwargs"]["max_gen_toks"] == 512
+    # D-21: pure greedy; overrides generation_config defaults such as Qwen's repetition_penalty 1.1
+    assert ev["gen_kwargs"]["repetition_penalty"] == 1.0
     if cfg["protocol"] == "D-15":
         assert "####" in ev["system_instruction"]
         for task in ev["tasks"]:  # custom task YAML must exist and declare the same task name

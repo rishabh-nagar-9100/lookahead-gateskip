@@ -216,11 +216,11 @@ ARCHITECTURE.md does not pin these down; the choices below are what the code doe
 - **Finding behind G5:** GateSkip's "compute saved" is a token-skip fraction that ignores the gates. Its vector gates cost 13.7% of a dense Llama-1B layer, and the paper's Table 13 understates their parameters (4.06% printed vs 10.8% with Llama-3.2-1B's H = 2048, L = 16). Our matched-compute comparison counts gate MACs for every method (D-18).
 - **Status:** active. Gap wording changes go through PAPER_PLAN.md plus a DECISIONS entry.
 
-### D-21 · 2026-11-06 · proposed · "Greedy" means pure greedy: set repetition_penalty 1.0 in every generation config
+### D-21 · 2026-11-06 · active · "Greedy" means pure greedy: set repetition_penalty 1.0 in every generation config
 - **Finding:** Qwen2.5-1.5B-Instruct's `generation_config.json` sets `do_sample: true, temperature 0.7, top_p 0.8, top_k 20, repetition_penalty 1.1`. With `do_sample=False`, HF still applies **repetition_penalty 1.1**. lm-eval's HF backend passes only our gen kwargs (`lm_eval/models/huggingface.py:1153–1189`) and does not reset it. So our Qwen GSM8K runs so far (D-08 `20261106-053918`, D-11 `20261106-060855`, chat `20261106-063044`) decoded **greedy with a 1.1 repetition penalty**, not the pure greedy the protocol states. Our engine does pure greedy, and it matches HF exactly only when HF gets `repetition_penalty=1.0` (run `20261106-172716_realcheck_qwen_mps_s0`: 3/3 prompts identical; with the default config they diverge at tokens 2–9).
 - **Proposal:**
   - Add `repetition_penalty: 1.0` to `gen_kwargs` in every eval config, so HF/lm-eval and our engine decode identically, as D-15 assumes.
   - Re-run the Qwen dense numbers under it. The 50-problem smoke is ≈ 10 min on MPS; the full set needs the GPU.
   - Check Llama-3.2-1B-Instruct's generation_config once access arrives.
 - **Alternative:** keep the model's default penalty in both HF and the engine (implement repetition penalty in the engine). Rejected for now: the protocol says greedy, a penalty is model-specific, and it would make Llama and Qwen decode under different rules.
-- **Status:** proposed; waiting for Rishabh's OK.
+- **Status:** **active** (approved by Rishabh 2026-11-06). All six eval configs set `repetition_penalty: 1.0`, and a protocol test enforces it. Earlier Qwen runs (053918, 060855, 063044) are marked as penalty-1.1 runs in EXPERIMENTS.md; the D-08 smoke is re-run under pure greedy.
