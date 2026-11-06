@@ -65,14 +65,25 @@ def test_create_run_dir_writes_config_and_meta(tmp_path):
     assert "torch" in meta["packages"]
 
 
+# GSM8K protocols from docs/DECISIONS.md: D-11 is primary, D-08 is the secondary dense sanity check.
+GSM8K_PROTOCOLS = {
+    "D-11": {"tasks": ["gsm8k"], "num_fewshot": 0, "apply_chat_template": False,
+             "fewshot_as_multiturn": False, "primary_metric": "exact_match,strict-match"},
+    "D-08": {"tasks": ["gsm8k_cot_llama"], "num_fewshot": 8, "apply_chat_template": True,
+             "fewshot_as_multiturn": True, "primary_metric": "exact_match,flexible-extract"},
+}
+
+
 @pytest.mark.parametrize("path", sorted((REPO_ROOT / "configs" / "eval").glob("*.yaml")))
 def test_eval_configs_follow_protocol(path):
-    """Eval configs must encode the fixed GSM8K protocol from docs/EXPERIMENTS.md."""
+    """Eval configs must encode the GSM8K protocol they declare (docs/EXPERIMENTS.md, DECISIONS)."""
     cfg = load_config(path)
     assert cfg["name"] == path.stem
     assert cfg["model"]["pretrained"]
+    assert cfg["protocol"] in GSM8K_PROTOCOLS, f"unknown protocol {cfg.get('protocol')}"
     ev = cfg["eval"]
-    assert ev["num_fewshot"] == 8
+    for key, expected in GSM8K_PROTOCOLS[cfg["protocol"]].items():
+        assert ev[key] == expected, f"{path.name}: eval.{key}={ev[key]!r}, expected {expected!r}"
     assert ev["gen_kwargs"]["do_sample"] is False
     assert ev["gen_kwargs"]["max_gen_toks"] == 512
 

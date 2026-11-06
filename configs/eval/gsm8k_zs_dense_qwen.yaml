@@ -1,0 +1,26 @@
+# Dense baseline (primary protocol, D-11), GSM8K, Qwen2.5-1.5B-Instruct (E10 replication).
+# Protocol: lm-eval `gsm8k`, 0-shot "Question: ...\nAnswer:" (GateSkip format), no chat template, greedy, max 512 new tokens. See DECISIONS D-11.
+name: gsm8k_zs_dense_qwen
+protocol: D-11   # primary GSM8K protocol
+
+model:
+  pretrained: Qwen/Qwen2.5-1.5B-Instruct
+  device: auto            # auto -> cuda, else mps, else cpu
+  dtype: auto             # auto -> dtype_by_device below
+  dtype_by_device:
+    cuda: bfloat16
+    mps: float16          # MPS bf16 coverage is incomplete (docs/SETUP.md)
+    cpu: float32
+
+eval:
+  tasks: [gsm8k]
+  num_fewshot: 0
+  apply_chat_template: false
+  fewshot_as_multiturn: false
+  batch_size: 1
+  limit: null             # null = full test set (1,319); override with --limit
+  gen_kwargs:
+    do_sample: false      # greedy
+    max_gen_toks: 512
+  log_samples: true       # raw generations go to results/raw/<run_id>/ (git-ignored)
+  primary_metric: exact_match,strict-match

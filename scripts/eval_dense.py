@@ -51,16 +51,27 @@ def gen_kwargs_to_str(gen_kwargs: dict[str, Any]) -> str:
     return ",".join(f"{k}={v}" for k, v in gen_kwargs.items())
 
 
-def output_length_stats(samples: list[dict[str, Any]], tokenizer) -> dict[str, float]:
-    """Average generated length in characters and tokens (raw response, before answer filtering)."""
-    texts = [s["resps"][0][0] for s in samples if s.get("resps")]
+def output_length_stats(
+    samples: list[dict[str, Any]], tokenizer, max_gen_toks: int
+) -> dict[str, float]:
+    """Generated length (raw response, before answer filtering) and how often the token cap was hit.
+
+    lm-eval logs one sample per (doc, filter), so responses are de-duplicated by doc_id.
+    Re-tokenising decoded text can differ by a token from the generated ids, so a response
+    within 1 token of the cap counts as having hit it.
+    """
+    by_doc = {s["doc_id"]: s["resps"][0][0] for s in samples if s.get("resps")}
+    texts = list(by_doc.values())
     if not texts:
         return {}
     n_tok = [len(tokenizer(t, add_special_tokens=False)["input_ids"]) for t in texts]
+    hit = sum(n >= max_gen_toks - 1 for n in n_tok)
     return {
+        "n_docs": len(texts),
         "avg_output_chars": sum(map(len, texts)) / len(texts),
         "avg_output_tokens": sum(n_tok) / len(n_tok),
         "max_output_tokens": max(n_tok),
+        "frac_hit_max_gen_toks": hit / len(texts),
     }
 
 
@@ -128,7 +139,7 @@ def main() -> None:
             with open(raw_dir / f"samples_{task}.jsonl", "w", encoding="utf-8") as f:
                 for s in task_samples:
                     f.write(json.dumps(s, default=str) + "\n")
-            lengths[task] = output_length_stats(task_samples, tok)
+            lengths[task] = output_length_stats(task_samples, tok, eval_cfg["gen_kwargs"]["max_gen_toks"])
         metrics["output_length"] = lengths
         metrics["raw_samples_dir"] = str(raw_dir.relative_to(REPO_ROOT))
 
