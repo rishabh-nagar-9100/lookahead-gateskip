@@ -225,3 +225,19 @@ ARCHITECTURE.md does not pin these down; the choices below are what the code doe
   - Check Llama-3.2-1B-Instruct's generation_config once access arrives.
 - **Alternative:** keep the model's default penalty in both HF and the engine (implement repetition penalty in the engine). Rejected for now: the protocol says greedy, a penalty is model-specific, and it would make Llama and Qwen decode under different rules.
 - **Status:** **active** (approved by Rishabh 2026-11-06). All six eval configs set `repetition_penalty: 1.0`, and a protocol test enforces it. Earlier Qwen runs (053918, 060855, 063044) are marked as penalty-1.1 runs in EXPERIMENTS.md; the D-08 smoke is re-run under pure greedy.
+
+### D-22 · 2026-11-07 · proposed · Lookahead decision mode: decide token t's tiers from token t−1's state
+- **Context** (R4, P5-06):
+  - Real skipping at bs=1 needs to know, on the host, whether to launch a module. On MPS each in-loop decision costs a queue drain.
+  - Our router with no skipping runs at 65.1 ms/token vs 40.8 for the dense engine (run `20261106-190740`).
+  - `sync_mode: per_layer` (speculative attention, one sync per layer) only reaches 62.2. The cost is having *any* sync inside the 28-layer loop, not the number of syncs.
+- **Proposal:** an optional router mode, `decision: lookahead`.
+  - **What changes:** token t's decisions at every layer ℓ are computed from information available before token t enters the network: μ_(t−1)^ℓ, RMSNorm(h_(t−1)^ℓ) and ΔAttn_(t−1)^ℓ, all from token t−1's pass. The gates for step t are computed at the end of step t−1, as one (L × 2) tensor, and copied to the host once (one sync per token, which `generate` already pays for the argmax). Step t then runs with no in-loop syncs, and the kernels can be launched back to back (and later captured in CUDA graphs per tier pattern).
+  - **What stays the same:** Tier 3 still computes exact K,V; the tiers, thresholds (§6), FLOP accounting and losses are unchanged; and the soft-gated training forward uses the shifted inputs.
+- **Cost to the method:** the decision no longer sees the current token's own hidden state or ΔAttn. This is a different router, and it might route worse; E12 measures how much. It fits the cross-token idea (G1), since the EMA already carries the context. Token 0 / prefill keeps the standard mode, because prefill decisions sync once per chunk anyway.
+- **Alternatives:**
+  - Keep the standard mode and accept 1.6×+ overhead at bs=1 on MPS (CUDA syncs are cheaper; measure there first).
+  - Device-side conditionals (CUDA graph conditional nodes), which are CUDA-only and complex.
+  - Masked execution, which saves FLOPs on paper but no time.
+- **Experiment:** E12 (EXPERIMENTS.md).
+- **Status:** proposed. Not implemented. Decide after the first CUDA latency numbers (E11 / P5-02), because on CUDA the standard mode may already be fast enough.

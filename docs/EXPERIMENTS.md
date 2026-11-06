@@ -42,6 +42,7 @@ Rules:
 | E10 | Replication | Qwen2.5-1.5B | E4 + E5 subset | todo |
 | E-DFT-Q | Dense-FT reference (0% compute) | Qwen2.5-1.5B-Instruct | As E-DFT, for E10 | todo |
 | E11 | Latency | both | bs=1; CUDA + MPS; ms/token, time/problem, length, memory | todo |
+| E12 | Lookahead decision mode (D-22, proposed) | Llama-3.2-1B (+ Qwen if it works) | Router variant whose tier decisions for token t at every layer come from token t−1's state, so a decode step needs at most one host sync. Trained with the same recipe as E4. Compare with E4 at matched compute (GSM8K, 3 budgets) and bs=1 ms/token (E11 harness). Go/no-go: accuracy within E4's seed spread and a lower ms/token than E4 | proposed |
 
 ## Run log
 
@@ -66,6 +67,7 @@ Rules:
 | 20261106-180117_realcheck_qwen_mps_s0 | P5-05 | 2026-11-06 | 5a4828d | configs/checks/qwen_mps.yaml | 0 | – | – | – | – | – | – | – | After P5-05 engine fixes: T-EQ 0.0 (fp32, fp16), pure-greedy match 3/3. **Dense engine 40.8 vs HF 38.8 ms/token → 1.05×** (was 2.38×). Superseded by 180357 (same numbers, more variants) |
 | 20261106-180357_realcheck_qwen_mps_s0 | P5-05 | 2026-11-06 | 1cda48a | configs/checks/qwen_mps.yaml | 0 | – | – | – | – | – | – | – | Qwen2.5-1.5B fp16, MPS (M4), bs=1, 64 tokens, median of 5 after 1 warm-up. T-EQ 0.0; pure-greedy match 3/3. **HF 39.0 ms/token; engine dense 40.8 (1.05×); decision path with every token Tier 1 61.6 (1.58×); our untrained router + EMA, τ = −∞ (no skipping) 65.5 (1.68×).** Decision path cost ≈ 21 ms/token = 2 host syncs × 28 layers (≈ 0.37 ms each on MPS); router + EMA compute ≈ 4 ms/token (R4) |
 | 20261106-182046_gsm8k_dense_qwen_s0 | E0 | 2026-11-06 | 4c627b3 | configs/eval/gsm8k_dense_qwen.yaml | 0 | 0% | 62.0% strict / 62.0% flexible (±6.9); robust 68.0% | | | | 0% | 128 tok (max 512; 2% hit cap) | **D-21 re-run, pure greedy** (repetition_penalty 1.0 recorded in lm-eval generation_kwargs), Qwen2.5-1.5B-Instruct, MPS fp16, --limit 50, D-08 protocol. Same accuracy as the penalty-1.1 run 053918 (62.0 / 62.0), but 0/50 outputs identical and 10 docs flip correctness (5 each way: 5, 26, 31, 39, 45 lost; 19, 29, 30, 38, 41 gained). Shorter outputs (128 vs 143 tok). One cap hit (doc 13: long LaTeX algebra, not a repetition loop). 360 s total (no downloads). **Replaces 053918 as the Qwen D-08 smoke reference** |
+| 20261106-190740_realcheck_qwen_mps_s0 | P5-06 | 2026-11-06 | b0bed38 | configs/checks/qwen_mps.yaml | 0 | – | – | – | – | – | – | – | Same checks + `sync_mode: per_layer`. T-EQ 0.0; pure-greedy match 3/3. ms/token (median over prompts): HF 38.9, dense 40.8 (1.05×), decision path Tier 1 61.6 (1.58×), our router no-skip per_module 65.1 (1.68×), **per_layer 62.2 (1.60×)**. Halving the syncs saves only ≈ 3 ms/token: any sync inside the layer loop drains the queue. Getting to dense speed needs ≈ 0 in-loop syncs (D-22) |
 
 ## Results summary (update after each experiment)
 

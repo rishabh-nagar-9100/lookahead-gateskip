@@ -67,7 +67,8 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 ## Phase 5 – Latency
 - [ ] P5-01 Batch-size-1 decode harness (warm-up, CUDA sync, median of N runs) — first pass in `scripts/real_model_checks.py` (MPS, HF vs engine variants, warm-up + median of 5); CUDA sync and E11 harness still to do
 - [x] P5-05 Engine speed (dense mode): preallocated KV cache, lazy on-device FLOP stats, dense fast path, sync-free decode attention, EMA only when used, last-position logits. **Dense engine 1.05× HF on MPS** (40.8 vs 39.0 ms/token, was 2.38×); torch.compile not needed for this target
-- [ ] P5-06 *(proposed)* Cut routing host syncs (decision path costs ≈ 21 ms/token on MPS = 56 syncs/token, 1.58× HF with no skipping). Options in RISKS R4; measure on CUDA first (P0-02), where a sync is far cheaper
+- [~] P5-06 Cut routing host syncs. Done: `sync_mode: per_layer` (speculative decode attention, 1 sync per layer), with tests. Measured on MPS: 65.1 → 62.2 ms/token (dense 40.8), so it is not enough. Next: CUDA numbers (P0-02), then decide D-22 (lookahead decision mode, E12)
+- [ ] P5-07 *(if D-22 accepted)* Implement `decision: lookahead` in router, training forward and engine; tests (T-KV, shifted-input equivalence); E12
 - [ ] P5-02 E11 CUDA latency for all methods; torch.compile / CUDA graphs variants
 - [ ] P5-03 E11 Apple MPS latency
 - [ ] P5-04 Output-length and time-per-problem analysis
