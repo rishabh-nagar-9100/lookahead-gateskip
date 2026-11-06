@@ -4,12 +4,12 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked (say why)
 Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation script`).
 
 ## Phase 0 – Setup
-- [!] P0-01 Request Hugging Face access to meta-llama/Llama-3.2-1B-Instruct; create read token — waiting on Rishabh (licence approval + token in `.env`)
+- [!] P0-01 Request Hugging Face access to meta-llama/Llama-3.2-1B-Instruct; create read token — token created and working (user rishabh9100); Llama licence approval still pending (403 GatedRepoError on 2026-11-06)
 - [!] P0-02 Confirm GPU access (model, VRAM, hours/week); record in SETUP.md — waiting on Rishabh / department
 - [~] P0-03 Create private GitHub repo with the README layout; add .gitignore (results/raw, checkpoints, .env) — local repo, layout and .gitignore done; GitHub remote still to be created and pushed by Rishabh
 - [x] P0-04 Create Python 3.11 env; install pinned requirements; record versions in SETUP.md (uv, D-09; `requirements.lock.txt`)
 - [~] P0-05 CI: GitHub Actions running pytest on CPU with a tiny random model — workflow + tests written, pytest green locally; first GitHub run pending the push (P0-03)
-- [!] P0-06 E0: dense Llama-3.2-1B-Instruct on GSM8K (50-problem smoke test, then full test set) — `scripts/eval_dense.py` + configs ready (D-08); run blocked on P0-01 (Llama access/token) and, for the full set, P0-02
+- [!] P0-06 E0: dense Llama-3.2-1B-Instruct on GSM8K (50-problem smoke test, then full test set) — pipeline verified with a 50-problem Qwen smoke run (62.0%, run `20261106-053918_gsm8k_dense_qwen_s0`); Llama runs blocked on gated-access approval (P0-01: token works, repo returns 403), full set ideally on GPU (P0-02)
 - [ ] P0-07 Clone GateSkip, pin commit hash in baselines/README.md, run its example
 - [ ] P0-08 Confirm review dates with guide; fill them into PROJECT_PLAN.md
 - [ ] P0-09 Optional: Weights & Biases project for run tracking
@@ -66,7 +66,7 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [ ] P7-04 Final presentation
 
 ## Blocked / waiting
-- P0-01 Llama licence approval + HF token — Rishabh
+- P0-01 Llama licence approval (token done) — waiting on Meta/Hugging Face
 - P0-02 GPU model / VRAM / hours — Rishabh, department
 - P0-03 GitHub remote — Rishabh (create private repo, push `main`)
-- P0-06 E0 runs — blocked on P0-01 (50-problem smoke on MPS is fine; full set ideally on GPU)
+- P0-06 Llama E0 runs — blocked on P0-01; full set ideally on GPU (≈12 s/problem on MPS → ~4.5 h for 1,319)

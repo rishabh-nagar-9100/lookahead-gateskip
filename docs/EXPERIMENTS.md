@@ -40,8 +40,8 @@ Rules:
 
 | Run ID | Exp | Date | Commit | Config | Seed | Budget | GSM8K | ARC-C | PIQA | MBPP | FLOP red. | Avg len | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| E0-smoke-qwen (pending) | E0 | 2026-11-06 | (set at launch) | configs/eval/gsm8k_dense_qwen.yaml | 0 | 0% | | | | | 0% | | Qwen2.5-1.5B-Instruct, MPS fp16, --limit 50, gsm8k_cot_llama (D-08). Fallback: Llama access pending. Registered before launch. |
+| 20261106-053918_gsm8k_dense_qwen_s0 | E0 | 2026-11-06 | e9e5451 | configs/eval/gsm8k_dense_qwen.yaml | 0 | 0% | 62.0% strict / 62.0% flexible (31/50, ±6.9) | | | | 0% | 143 tok (max 312) | Qwen2.5-1.5B-Instruct, smoke --limit 50, MPS fp16, gsm8k_cot_llama (D-08). Generation 10:00 (≈12 s/problem); total 1042 s incl. first-time model+dataset download. meta.json says dirty=True only because of the untracked run dir (bug fixed after this run); tracked tree was clean. Llama access pending. |
 
 ## Results summary (update after each experiment)
 
-_(paste the latest summary tables here; keep raw outputs in results/)_
+**E0 smoke (2026-11-06), 50 GSM8K test problems, not a reportable number:** Qwen2.5-1.5B-Instruct dense, 8-shot CoT (chat), greedy, MPS fp16 → 62.0% (strict = flexible), avg output 143 tokens, ≈12 s/problem. Llama-3.2-1B pending gated access. Full-set E0 to run on GPU.
