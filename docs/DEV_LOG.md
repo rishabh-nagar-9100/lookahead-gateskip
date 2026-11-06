@@ -14,13 +14,14 @@ Newest entry first. One entry per work session. Keep it short and factual.
 
 ---
 
-### 2026-11-06 · Phase 2 core on CPU · P2-00 … P2-03, P2-06 …
+### 2026-11-06 · Phase 2 core on CPU · P2-00 … P2-04, P2-06 …
 **Done:**
 - D-16 active, with Rishabh's two additions: line-referenced evidence for the GateSkip claims (LITERATURE.md) and two port variants (exactKV main, copyKV for G4). Added P2-09, P2-10, P4-06 and E1-exactKV, E1-copyKV, E1-official.
 - P2-02 EMA memory (`lagate/routing/ema.py`): chunked causal scan + decode step; T-EMA green.
 - P2-03 dual-head router (`lagate/routing/router.py`, `configs/router/lagate.yaml`); open spec details recorded as D-17.
 - P2-01 layer adapter (`lagate/models/adapter.py`): our own decoder loop over HF submodules (norms, K,V+RoPE, Q, position-masked attention, MLP) for Llama and Qwen2; equals HF logits and HF's cached K,V at 1e-5. Tiny random fixtures in `tests/conftest.py`.
 - P2-06 FLOP counter (`lagate/engine/flops.py`) + `scripts/flop_report.py`; T-FLOP checks a hand calculation and PyTorch's measured matmul FLOPs.
+- P2-04 soft-gated training forward (`lagate/models/gated.py`): h' = h + g_L·ΔAttn, h'' = h' + g_L·g_M·MLP, compute-weighted L_S over valid tokens. T-EQ green: router disabled equals HF logits at 1e-5, with and without right padding.
 **Results / numbers:** FLOP reports `20261106-155823_flops_llama_s0`, `20261106-155824_flops_qwen_s0`. Router = 0.57–0.64% of a dense layer (Llama), 0.56–0.63% (Qwen). The MLP is 73–88% of a layer, so Tier 2 alone saves most of the compute; Tier 3 costs 2–4%.
 **Problems / findings:**
 - **Correction to the GateSkip code review entry below:** their K,V copy from ℓ−1 never actually happens. `update_kv_cache` reads the cache from `module_output[1]`, which is the attention-weight tensor; the resulting error or early `None` is swallowed. Shown by running their function verbatim (`scripts/check_gateskip_kvcopy.py`). Their cache is therefore exact, and the G4 evidence has to come from our copyKV run.
