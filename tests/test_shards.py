@@ -87,3 +87,13 @@ def test_merge_refuses_inconsistent_shards(bad):
         runs = [a, _run(1, 2, [5, 6, 7, 8, 9], 0.5, {"name": "y"})]
     with pytest.raises(SystemExit):
         ms.check_shards(runs, CFG, 0, False, False)
+
+
+def test_merge_ignores_limit_but_requires_it_equal():
+    cl = {"name": "x", "eval": {"limit": 10, "tasks": ["t"]}}
+    base = {"name": "x", "eval": {"limit": None, "tasks": ["t"]}}
+    runs = [_run(0, 2, [0, 1, 2, 3, 4], 0.5, cl), _run(1, 2, [5, 6, 7, 8, 9], 0.5, cl)]
+    assert ms.check_shards(runs, base, 0, False, False)["limit"] == 10
+    runs[1]["config"] = {"name": "x", "eval": {"limit": 20, "tasks": ["t"]}}
+    with pytest.raises(SystemExit):
+        ms.check_shards(runs, base, 0, False, False)

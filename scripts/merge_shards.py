@@ -6,7 +6,8 @@ Usage:
     python scripts/merge_shards.py --config ... --seed 0 --glob 'results/*_gsm8k_chat_dense_qwen_shard*of4_s0'
 
 Checks before merging (any failure aborts):
-  * every run used this config (identical config.yaml apart from nothing: shards differ only by CLI args),
+  * every run used this config (identical config.yaml except ``eval.limit``, which --limit writes
+    into it and which must be the same in every shard),
   * the same git commit and a clean tree in every shard (``--allow-dirty`` / ``--allow-mixed-commits``
     relax this, and the merged meta records it),
   * the same seed, device type, dtype and GPU name,
@@ -51,12 +52,19 @@ def load_run(d: Path) -> dict[str, Any]:
             "metrics": json.loads((d / "metrics.json").read_text())}
 
 
+def _without_limit(cfg: dict) -> dict:
+    return {**cfg, "eval": {k: v for k, v in cfg.get("eval", {}).items() if k != "limit"}} if "eval" in cfg else cfg
+
+
 def check_shards(runs: list[dict], cfg: dict, seed: int, allow_dirty: bool, allow_mixed: bool) -> dict[str, Any]:
     if not runs:
         raise SystemExit("no shard runs given")
     problems = []
+    limits = {r["config"].get("eval", {}).get("limit") for r in runs}
+    if len(limits) > 1:
+        problems.append(f"shards used different --limit values {limits}")
     for r in runs:
-        if r["config"] != cfg:
+        if _without_limit(r["config"]) != _without_limit(cfg):
             problems.append(f"{r['dir'].name}: config differs from {cfg['name']}")
         if r["meta"]["seed"] != seed:
             problems.append(f"{r['dir'].name}: seed {r['meta']['seed']} != {seed}")
@@ -91,7 +99,7 @@ def check_shards(runs: list[dict], cfg: dict, seed: int, allow_dirty: bool, allo
     n_sel = {s["n_selected"] for s in shards}
     if len(n_sel) != 1 or len(ids) != n_sel.pop():
         raise SystemExit("the shards do not cover the full selection")
-    return {"num_shards": n, "n_docs": len(ids), "commits": sorted(commits), "dirty_shards": dirty}
+    return {"num_shards": n, "n_docs": len(ids), "limit": limits.pop(), "commits": sorted(commits), "dirty_shards": dirty}
 
 
 def _weighted(values: list[tuple[float, int]]) -> float:
