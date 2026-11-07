@@ -54,7 +54,7 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 
 ## Phase 3 – Training & calibration
 - [x] P3-01 Choose training data (match GateSkip's setup for fairness); log in DECISIONS.md. D-06 (GateSkip's `csqa_gsm8k_gen` mix), chat format per D-15
-- [~] P3-06 Convert the D-06 data to chat format (D-15). Each example: system instruction, question as the user turn, assistant turn `"{steps}\n#### {answer}"`; loss on assistant tokens only; use each model's chat template.
+- [x] P3-06 Convert the D-06 data to chat format (D-15). Each example: system instruction, question as the user turn, assistant turn `"{steps}\n#### {answer}"`; loss on assistant tokens only; use each model's chat template.
   - **Done:** `lagate.training.chat_data` + `configs/data/d06_chat.yaml` + `scripts/prepare_chat_data.py`, with tests (stub tokenizer in CI, real Qwen tokenizer when cached).
     - The GSM8K system instruction is read verbatim from the eval config.
     - The loss covers the assistant content plus `<|im_end|>`.
@@ -64,9 +64,11 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
     - 6,973 train / 500 calibration examples, none over 1,024 tokens;
     - length mean 236 tokens, p99 442;
     - 123 learned tokens per example.
-  - **Still to do:**
-    - Download `multi-domain-reasoning/commonsense_qa` (first download, waiting on Rishabh's OK), pin its revision and re-run the prepare script for both sources.
-    - Set `train.steps` in the training configs from the final example count.
+  - **Both sources** (run `20261107-063707_prepare_d06_qwen_s0`, CSQA pinned at `a7b9ab8`):
+    - 16,211 train examples (6,973 GSM8K + 9,238 CSQA) and 1,000 calibration (500 + 500);
+    - 3 CSQA examples dropped as over 1,024 tokens;
+    - length mean 445 tokens, p99 740; 348 learned tokens per example; 7.2M tokens per epoch.
+  - `configs/train/denseft_qwen.yaml`: `train.steps` = 1013 (1 epoch at 16 per step).
   - GSM8K uses the exact `system_instruction` from `configs/eval/gsm8k_chat_dense_*.yaml`. Read it from there, don't copy it; a test should check the two match.
   - CommonsenseQA gets a matching instruction asking for a final `#### <letter>` line.
   - Pin the dataset revisions, and add a unit test on a few rendered examples for Llama and Qwen.
@@ -81,7 +83,7 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 ## Colab session plan (D-23)
 Each session: open `notebooks/colab_runner.ipynb`, run Setup, then only that session's job cells. Results are pushed from Colab; register them in EXPERIMENTS.md afterwards.
 - [ ] **S1 · T4 (free) · setup + smoke + speed.** P0-13 first half: `setup_gpu.sh env`, `test`, `teq` (dims, full-scale T-EQ fp32/fp16, greedy match, bs=1 speed check HF vs dense engine vs routing path), `smoke` (50-problem D-08, Qwen reference 62.0%). Speed numbers on T4 are setup checks only.
-- [ ] **S2 · L4 · Dense-FT + P3-08.** Prerequisites: D-13 confirmed; P3-06 finished (CSQA). Steps:
+- [ ] **S2 · L4 · Dense-FT + P3-08.** Prerequisite: D-13 confirmed (P3-06 is done). Steps:
   1. Re-run `teq` on the L4 for bf16 numbers.
   2. Time 200 steps (P0-13 second half).
   3. P3-07: `configs/train/denseft_qwen.yaml`, seed 1.
@@ -128,7 +130,6 @@ Each session: open `notebooks/colab_runner.ipynb`, run Setup, then only that ses
 ## Blocked / waiting
 - P0-01 Llama licence approval (token done) — waiting on Meta/Hugging Face
 - D-13 fine-tuning mode: recommendation (b) LoRA r=16 (the only fair option that fits an L4, D-13 Colab notes) — waiting on Rishabh
-- P3-06 CommonsenseQA download (`multi-domain-reasoning/commonsense_qa`, first download) — waiting on Rishabh's OK
 - ~~P0-03 GitHub remote~~ done 2026-11-07
 - P0-07 run GateSkip: needs GPU (P0-02), base Llama-3.2-1B access (P0-01), OK to install its deps
 - P0-06 Llama E0 runs — blocked on P0-01; full set ideally on GPU (≈12 s/problem on MPS → ~4.5 h for 1,319)

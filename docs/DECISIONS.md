@@ -277,7 +277,8 @@ ARCHITECTURE.md does not pin these down; the choices below are what the code doe
      - **Calculator annotations** (`<<48/2=24>>`) are kept, as in GateSkip (`strip_calculator_annotations` exists for an ablation).
      - **Loss** covers the assistant content plus the first end-of-turn token (`<|im_end|>` / `<|eot_id|>`), so the model learns to stop. The template's trailing newline is masked.
      - **Calibration hold-out:** 500 GSM8K + 500 CSQA train rows, chosen with a fixed `split_seed` 1234 (the same for every method and seed). They are used for thresholds and for the P3-08 check (task `gsm8k_chat_zs_calib` on the same pinned GSM8K snapshot). The test sets are never touched.
-     - **Dropping:** examples over 1,024 tokens are dropped and counted (none for GSM8K with the Qwen tokenizer).
+     - **Dropping:** examples over 1,024 tokens are dropped and counted: 3 of 9,738 CSQA train examples with the Qwen tokenizer, none for GSM8K (run `20261107-063707`).
+     - **CSQA refusals kept:** 3 CSQA rows (709, 5822, 9572 at revision `a7b9ab8`) have a refusal instead of a reasoning trace. GateSkip trains on them, so we keep them too, for identical data (D-06). They are 0.02% of the data.
      - **CommonsenseQA instruction:** "Answer the multiple-choice question step by step. End your answer with a final line of the form '#### X', where X is the letter of the correct choice."
 - **Consequences:**
   - The EXPERIMENTS model columns now read "Qwen2.5-1.5B (D-23)".

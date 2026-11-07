@@ -23,12 +23,12 @@ data:
   config: configs/data/d06_chat.yaml
   batch_size: 4                   # micro-batch; OOM on 24 GB -> 2 with grad_accum 8 (same effective batch)
 train:
-  steps: 1000                     # ≈ 1 epoch: (6,973 GSM8K + ~9.2k CSQA train) / 16 per step; set exactly after P3-06 stats
+  steps: 1013                     # 1 epoch: floor(16,211 train examples / 16 per step), run 20261107-063707 (Qwen tokenizer)
   grad_accum: 4                   # effective batch 16 sequences
   lr: 2.0e-4                      # LoRA
   router_lr: 0.0                  # no router in Dense-FT (group is empty)
   warmup_steps: 30
-  lr_decay_steps: 1000            # linear decay to 0 at the last step
+  lr_decay_steps: 1013            # linear decay to 0 at the last step
   weight_decay: 0.0
   max_grad_norm: 1.0
   precision: autocast             # LoRA weights fp32, forward in the model dtype (bf16)

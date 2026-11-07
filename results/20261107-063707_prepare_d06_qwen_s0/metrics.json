@@ -1,0 +1,47 @@
+{
+  "tokenizer": "Qwen/Qwen2.5-1.5B-Instruct",
+  "sources": [
+    "gsm8k",
+    "csqa"
+  ],
+  "raw_sizes": {
+    "gsm8k": 7473,
+    "csqa": 9741
+  },
+  "dropped_over_max_length": {
+    "train": {
+      "csqa": 3
+    },
+    "calibration": {}
+  },
+  "calibration_row_digest": {
+    "gsm8k": "89b347f52deb9e7a",
+    "csqa": "1d76a85deaf15870"
+  },
+  "train": {
+    "n": 16211,
+    "by_source": {
+      "gsm8k": 6973,
+      "csqa": 9238
+    },
+    "tokens_total": 7213391,
+    "len_mean": 444.96890999938313,
+    "len_p50": 542,
+    "len_p99": 740,
+    "len_max": 1024,
+    "label_tokens_mean": 348.2163345876257
+  },
+  "calibration": {
+    "n": 1000,
+    "by_source": {
+      "gsm8k": 500,
+      "csqa": 500
+    },
+    "tokens_total": 418038,
+    "len_mean": 418.038,
+    "len_p50": 478,
+    "len_p99": 724,
+    "len_max": 862,
+    "label_tokens_mean": 319.196
+  }
+}

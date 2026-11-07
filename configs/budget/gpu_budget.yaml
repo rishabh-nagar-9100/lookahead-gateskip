@@ -11,6 +11,8 @@ gpus:
 
 training:
   # One run = 1 epoch of the D-06 mix in chat format: GSM8K train 7,473 + CSQA-Nemotron ≈ 9,741 examples.
+  # Measured in P3-06 (run 20261107-063707, Qwen tokenizer): 16,211 train examples, mean 445 tokens
+  # (7.2M tokens/epoch), i.e. ≈ 1.5× the ≈ 300 tokens assumed below. Re-time in P0-13 on the L4.
   # ≈ 0.1 s/step at bs=1 on an A100 for Llama-1B (fwd+bwd ≈ 2e12 FLOPs at ≈ 300 tokens, + launch
   # overhead of our Python layer loop, + AdamW step), × 17.2k steps ≈ 0.5 h.
   hours_a100: {llama: 0.5, qwen: 0.75}

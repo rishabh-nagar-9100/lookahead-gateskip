@@ -42,8 +42,14 @@ Newest entry first. One entry per work session. Keep it short and factual.
 - lm-eval's `samples=` renumbers doc_id from 0 within a shard. The original ids are kept in `metrics.shard.doc_ids`.
 - An empty `.env` could clobber a token already in the environment in `setup_gpu.sh`. Fixed: `.env` is now only read when `HF_TOKEN` is unset.
 
+**Follow-up (same day):**
+- CommonsenseQA downloaded with your OK (13.7 MB, 9,741 rows) and pinned at `a7b9ab8`; its schema matches GateSkip's loader.
+- **P3-06 done** (run `063707`): 16,211 train / 1,000 calibration examples, mean 445 tokens, 3 dropped.
+- Dense-FT is set to 1,013 steps (1 epoch at 16 per step).
+- 3 CSQA refusal rows are kept, as in GateSkip (D-23).
+- Examples average ≈ 1.5× the tokens the GPU budget assumed; P0-13 re-times training anyway.
+
 **Next:**
-- CSQA download (needs OK) → finish P3-06.
 - Confirm D-13.
 - Colab S1 on a T4.
 
