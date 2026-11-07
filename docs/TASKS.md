@@ -5,7 +5,7 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 
 ## Phase 0 – Setup
 - [!] P0-01 Request Hugging Face access to meta-llama/Llama-3.2-1B-Instruct; create read token — token created and working (user rishabh9100); Llama licence approval still pending (403 GatedRepoError on 2026-11-06)
-- [!] P0-02 Confirm GPU access (model, VRAM, hours/week); record in SETUP.md — waiting on Rishabh / department
+- [x] P0-02 Confirm GPU access: **Google Colab** (free T4 for setup/tests/smoke/speed checks, paid L4 for training; A100 only if available), D-23. Primary model is Qwen2.5-1.5B-Instruct until Llama access arrives (D-23)
 - [x] P0-03 GitHub repo with the README layout and .gitignore (results/raw, checkpoints, .env): https://github.com/rishabh-nagar-9100/lookahead-gateskip, `main` pushed 2026-11-07 (keychain credentials, no token in any file)
 - [x] P0-04 Create Python 3.11 env; install pinned requirements; record versions in SETUP.md (uv, D-09; `requirements.lock.txt`)
 - [x] P0-05 CI: GitHub Actions running pytest on CPU with tiny random models. First run failed (peft not installed); fixed with pinned deps. Run 42272751382 on `dc0c6b8` passed
@@ -19,7 +19,15 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [x] P0-11 Choose the dense-reference protocol. D-15: chat-format training and evaluation, untrained models under D-08, Dense-FT reference. Protocol B was checked in run `20261106-063044_gsm8k_chat_dense_qwen_s0` (failed for the untrained model, which motivated D-15)
 - [x] P0-12 Robust secondary GSM8K extractor (`lagate.eval.answer`, D-15) handling `#### N`, `\boxed{N}`, `**N**`, `$N`, commas and "The (final) answer is N"; logged by `eval_dense.py` as `robust_extract`; tests include the five failing protocol-B outputs
 - [x] P0-14 GPU prep: `docs/GPU_RUNBOOK.md` (incl. cloud rental), `scripts/setup_gpu.sh` (clone, env from lock with CUDA torch, .env, pytest, full-scale T-EQ, 50-problem smoke), CUDA check configs, GPU-hour estimate `docs/GPU_BUDGET.md`. CUDA stages not yet run on a CUDA machine
-- [ ] P0-13 First GPU session: run `scripts/setup_gpu.sh all`, time 200 real training steps per method, then update `configs/budget/gpu_budget.yaml` and `docs/GPU_BUDGET.md` with measured numbers
+- [x] P0-15 Colab runner (D-23): `notebooks/colab_runner.ipynb` + `scripts/colab_helpers.py`.
+  - **Drive and tokens:** Drive persistence (HF cache, checkpoints, raw outputs, results mirror). HF/GitHub tokens come from Colab Secrets and are never printed or written.
+  - **Jobs:** one config-driven cell per job.
+  - **Training:** checkpoints every 30 min, with exact resume (tested).
+  - **Evaluation:** sharded eval + `scripts/merge_shards.py` (sharded = unsharded outputs on 4 problems); 177 tests.
+  - **Hardware and dtypes:** GPU type in every meta.json; bf16 on L4/A100, fp16 on T4.
+  - **Other pieces:** `scripts/calibrate.py`; only small result files are pushed.
+  - **Status:** not yet run on Colab (S1).
+- [ ] P0-13 First GPU session = **Colab S1** (T4): setup, `test`, `teq` (incl. the CUDA speed check), `smoke`; then on the first L4 session time 200 real training steps per method and update `configs/budget/gpu_budget.yaml` and `docs/GPU_BUDGET.md` with measured numbers
 - [ ] P0-08 Confirm review dates with guide; fill them into PROJECT_PLAN.md
 - [ ] P0-09 Optional: Weights & Biases project for run tracking
 
@@ -46,7 +54,19 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 
 ## Phase 3 – Training & calibration
 - [x] P3-01 Choose training data (match GateSkip's setup for fairness); log in DECISIONS.md. D-06 (GateSkip's `csqa_gsm8k_gen` mix), chat format per D-15
-- [ ] P3-06 Convert the D-06 data to chat format (D-15). Each example: system instruction, question as the user turn, assistant turn `"{steps}\n#### {answer}"`; loss on assistant tokens only; use each model's chat template.
+- [~] P3-06 Convert the D-06 data to chat format (D-15). Each example: system instruction, question as the user turn, assistant turn `"{steps}\n#### {answer}"`; loss on assistant tokens only; use each model's chat template.
+  - **Done:** `lagate.training.chat_data` + `configs/data/d06_chat.yaml` + `scripts/prepare_chat_data.py`, with tests (stub tokenizer in CI, real Qwen tokenizer when cached).
+    - The GSM8K system instruction is read verbatim from the eval config.
+    - The loss covers the assistant content plus `<|im_end|>`.
+    - A fixed 500 + 500 calibration hold-out (`split_seed` 1234).
+    - Details in D-23 item 5.
+  - **GSM8K with the Qwen tokenizer** (run `20261107-062308_prepare_d06_qwen_s0`):
+    - 6,973 train / 500 calibration examples, none over 1,024 tokens;
+    - length mean 236 tokens, p99 442;
+    - 123 learned tokens per example.
+  - **Still to do:**
+    - Download `multi-domain-reasoning/commonsense_qa` (first download, waiting on Rishabh's OK), pin its revision and re-run the prepare script for both sources.
+    - Set `train.steps` in the training configs from the final example count.
   - GSM8K uses the exact `system_instruction` from `configs/eval/gsm8k_chat_dense_*.yaml`. Read it from there, don't copy it; a test should check the two match.
   - CommonsenseQA gets a matching instruction asking for a final `#### <letter>` line.
   - Pin the dataset revisions, and add a unit test on a few rendered examples for Llama and Qwen.
@@ -57,6 +77,17 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [ ] P3-03 λ sweep (3–4 values) on Llama
 - [ ] P3-04 Calibration script: τ_L, τ_M from empirical CDF for 15/25/35%
 - [ ] P3-05 E4: main GSM8K result, 3 seeds
+
+## Colab session plan (D-23)
+Each session: open `notebooks/colab_runner.ipynb`, run Setup, then only that session's job cells. Results are pushed from Colab; register them in EXPERIMENTS.md afterwards.
+- [ ] **S1 · T4 (free) · setup + smoke + speed.** P0-13 first half: `setup_gpu.sh env`, `test`, `teq` (dims, full-scale T-EQ fp32/fp16, greedy match, bs=1 speed check HF vs dense engine vs routing path), `smoke` (50-problem D-08, Qwen reference 62.0%). Speed numbers on T4 are setup checks only.
+- [ ] **S2 · L4 · Dense-FT + P3-08.** Prerequisites: D-13 confirmed; P3-06 finished (CSQA). Steps:
+  1. Re-run `teq` on the L4 for bf16 numbers.
+  2. Time 200 steps (P0-13 second half).
+  3. P3-07: `configs/train/denseft_qwen.yaml`, seed 1.
+  4. P3-08: sharded eval `configs/eval/gsm8k_chat_denseft_qwen_calib.yaml`, then merge, then the check cell. **If P3-08 fails, stop and revisit the protocol before S3.**
+- [ ] **S3 · L4 · GateSkip port + pilot E1–E3.** Train the GateSkip port (D-16/D-18 recipe, D-13 mode), calibrate (`calibrate.py`), E1 at 0/15/25/35% (sharded evals). Gate logs for E2 (error tokens) and E3 (adjacent-token correlation).
+- [ ] **S4 · L4 · ours + calibration + E4.** Train our method (λ from P3-03), calibrate τ_L/τ_M (P3-04), E4 main GSM8K result at 3 budgets.
 
 ## Phase 4 – Evaluation & ablations
 - [ ] P4-01 Baselines: GateSkip, FlexiDepth, D-LLM, FFN-skip (DiffSkip-style), random skip, at matched compute
@@ -96,7 +127,8 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 
 ## Blocked / waiting
 - P0-01 Llama licence approval (token done) — waiting on Meta/Hugging Face
-- P0-02 GPU model / VRAM / hours — Rishabh, department
+- D-13 fine-tuning mode: recommendation (b) LoRA r=16 (the only fair option that fits an L4, D-13 Colab notes) — waiting on Rishabh
+- P3-06 CommonsenseQA download (`multi-domain-reasoning/commonsense_qa`, first download) — waiting on Rishabh's OK
 - ~~P0-03 GitHub remote~~ done 2026-11-07
 - P0-07 run GateSkip: needs GPU (P0-02), base Llama-3.2-1B access (P0-01), OK to install its deps
 - P0-06 Llama E0 runs — blocked on P0-01; full set ideally on GPU (≈12 s/problem on MPS → ~4.5 h for 1,319)

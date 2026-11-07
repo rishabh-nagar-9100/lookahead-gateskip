@@ -1,0 +1,6 @@
+name: prepare_d06_qwen
+data_config: configs/data/d06_chat.yaml
+tokenizer: Qwen/Qwen2.5-1.5B-Instruct
+sources:
+- gsm8k
+n_rendered_examples: 1

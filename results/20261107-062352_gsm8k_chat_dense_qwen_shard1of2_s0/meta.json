@@ -1,0 +1,48 @@
+{
+  "run_id": "20261107-062352_gsm8k_chat_dense_qwen_shard1of2_s0",
+  "seed": 0,
+  "created_utc": "2026-11-07T06:23:52.623691+00:00",
+  "git": {
+    "commit": "23d60f961631f1e80c9dc1628cffbd412d490b05",
+    "dirty": false
+  },
+  "packages": {
+    "lagate": "0.0.1",
+    "torch": "2.15.0",
+    "transformers": "5.22.1",
+    "accelerate": "1.15.0",
+    "peft": "0.21.2",
+    "datasets": "5.1.0",
+    "lm_eval": "0.4.13",
+    "numpy": "2.4.6",
+    "pyyaml": "6.0.3"
+  },
+  "python": "3.11.15 (main, Jun 23 2026, 15:46:51) [Clang 22.1.3 ]",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "argv": [
+    "scripts/eval_dense.py",
+    "--config",
+    "configs/eval/gsm8k_chat_dense_qwen.yaml",
+    "--seed",
+    "0",
+    "--limit",
+    "4",
+    "--shard",
+    "1",
+    "--num-shards",
+    "2"
+  ],
+  "accelerator": {
+    "cuda": false,
+    "mps": true,
+    "colab": false
+  },
+  "device": "mps",
+  "dtype": "float16",
+  "dtype_configured": "auto",
+  "pretrained": "Qwen/Qwen2.5-1.5B-Instruct",
+  "limit": 4,
+  "shard": 1,
+  "num_shards": 2,
+  "n_selected": 4
+}

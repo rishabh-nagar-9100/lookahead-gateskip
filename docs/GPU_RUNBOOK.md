@@ -111,6 +111,70 @@ Applies to RunPod, Lambda, Vast.ai, Paperspace, or GCP/AWS/Azure VMs.
    - Copy raw generations and checkpoints with `rsync -avP user@host:/workspace/lookahead-gateskip/results/raw/ results/raw/`. They are git-ignored and must never be committed.
 7. **Shut down.** `git status` clean and pushed → stop or delete the instance → delete the volume only after checkpoints are copied somewhere safe.
 
+## 9. Google Colab (D-23)
+
+Everything runs from **`notebooks/colab_runner.ipynb`**. Open it in Colab (File → Open notebook → GitHub, or upload it), pick the runtime type, and run the Setup cells top to bottom at the start of every session.
+
+**GPU roles.**
+- **T4** (free, sm_75, no native bf16): fp16. Use it **only** for `pytest`, T-EQ, smoke runs and speed checks. Its latency numbers are setup checks, not E11 results.
+- **L4** (paid, 24 GB, bf16): training and every reported evaluation. The training cells refuse to run on a T4.
+- **A100:** only needed for an optional full fine-tune reference row (D-13).
+
+**One-time setup.**
+1. Colab Secrets (key icon in the left sidebar):
+   - `HF_TOKEN`: your read token.
+   - `GITHUB_TOKEN`: a **fine-grained** personal access token, limited to this repository, with *Contents: read and write* and an expiry date.
+   - Enable "Notebook access" for both. Never paste a token into a cell.
+2. Google Drive: the notebook creates `MyDrive/lagate/` with these folders:
+
+   | Folder | Holds | Notes |
+   |---|---|---|
+   | `hf_cache/` | `HF_HOME` | Models and datasets download once |
+   | `checkpoints/` | Training checkpoints | Symlinked from the repo's `checkpoints/`; also `$LAGATE_CHECKPOINT_ROOT` |
+   | `raw/` | Raw generations | Symlinked from `results/raw/` |
+   | `results_mirror/` | Copy of every `results/<run_id>/` | Safety copy in case a push fails |
+
+**What happens in Setup.**
+- **Tokens:** they are read with `google.colab.userdata` into the kernel's environment only. Git authenticates through an inline credential helper that expands `$GITHUB_TOKEN` at call time, so the token never lands in `.git/config`, a remote URL, a file or the cell output (output is also scrubbed).
+- **Repo:** cloned to `/content/lookahead-gateskip` (fast, ephemeral), or pulled if it is already there.
+- **Environment:** `.venv` is built with `setup_gpu.sh env`, using CUDA torch from `CUDA_TAG` (default `cu128`) plus `requirements.lock.txt`. This takes about 3–5 min per new runtime.
+- **GPU detection:** `nvidia-smi` gives the name and compute capability, which decide bf16 (L4/A100) vs fp16 (T4). `lagate.utils.accelerator_info()` writes the GPU into every run's `meta.json`.
+
+**Jobs.** Each cell is one job and takes a config path:
+
+| Job | Script | Notes |
+|---|---|---|
+| Setup stages | `setup_gpu.sh test`, `teq`, `smoke` | One cell each |
+| Smoke test | `eval_dense.py --limit 50` | |
+| CUDA speed check | `real_model_checks.py` | HF vs our dense engine vs the routing path, bs=1 |
+| Training | `train.py` | Resumes from `latest.pt` on Drive; Dense-FT also exports a merged HF model |
+| Calibration | `calibrate.py` | |
+| Sharded evaluation | `eval_dense.py --shard i --num-shards n` | Finished shards are skipped, so the cell can be re-run in later sessions |
+| Merge | `merge_shards.py` | |
+| P3-08 check | — | Reads the merged run and applies the D-15 criteria |
+
+Each job ends with `finish()`. It mirrors `results/` to Drive, then commits and pushes **only** the small files (`config.yaml`, `meta.json`, `metrics.json`, thresholds; each ≤ 2 MB) after `git pull --rebase`.
+
+**Session limits.**
+- Training checkpoints every 30 min. After a disconnect, run Setup and then the same training cell; it resumes at the saved step with the same data order.
+- Size eval shards so that one finishes well inside a session: 4 shards for the GSM8K test set on an L4.
+- All shards of one evaluation must use the same GPU type; the merge checks this.
+
+**Session order (TASKS.md, "Colab session plan").**
+
+| Session | GPU | Jobs |
+|---|---|---|
+| S1 | T4 | Setup, `test`, `teq` (with the speed check), `smoke` |
+| S2 | L4 | Dense-FT + P3-08 |
+| S3 | L4 | GateSkip port + pilot E1–E3 |
+| S4 | L4 | Ours + calibration + E4 |
+
+**Colab-specific troubleshooting.**
+- `torch.cuda.is_available()` is False after `env`: the runtime's driver is older than `CUDA_TAG`. Set `CUDA_TAG = "cu126"` in the settings cell, delete `.venv` (`!rm -rf /content/lookahead-gateskip/.venv`) and re-run.
+- "MISSING" for a secret: add it in Secrets and toggle notebook access, then re-run the secrets cell.
+- Push rejected: run the manual commit cell, which rebases on `origin/main`. Results files never conflict, because each run has its own directory.
+- Drive is slow for the first model load (≈ 3 GB from `hf_cache`). Later loads in the same session are cached by the OS.
+
 ## Troubleshooting
 
 | Symptom | Fix |

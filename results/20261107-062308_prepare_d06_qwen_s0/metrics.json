@@ -1,0 +1,40 @@
+{
+  "tokenizer": "Qwen/Qwen2.5-1.5B-Instruct",
+  "sources": [
+    "gsm8k"
+  ],
+  "raw_sizes": {
+    "gsm8k": 7473
+  },
+  "dropped_over_max_length": {
+    "train": {},
+    "calibration": {}
+  },
+  "calibration_row_digest": {
+    "gsm8k": "89b347f52deb9e7a"
+  },
+  "train": {
+    "n": 6973,
+    "by_source": {
+      "gsm8k": 6973
+    },
+    "tokens_total": 1642357,
+    "len_mean": 235.5309049189732,
+    "len_p50": 223,
+    "len_p99": 442,
+    "len_max": 590,
+    "label_tokens_mean": 122.89129499498064
+  },
+  "calibration": {
+    "n": 500,
+    "by_source": {
+      "gsm8k": 500
+    },
+    "tokens_total": 117090,
+    "len_mean": 234.18,
+    "len_p50": 218,
+    "len_p99": 459,
+    "len_max": 560,
+    "label_tokens_mean": 121.426
+  }
+}

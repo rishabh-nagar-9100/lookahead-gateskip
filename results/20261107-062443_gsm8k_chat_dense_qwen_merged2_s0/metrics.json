@@ -1,0 +1,54 @@
+{
+  "results": {
+    "gsm8k_chat_zs": {
+      "name": "gsm8k_chat_zs",
+      "sample_len": 4,
+      "exact_match,strict-match": 0.5,
+      "exact_match_stderr,strict-match": 0.28867513459481287,
+      "exact_match,flexible-extract": 1.0,
+      "exact_match_stderr,flexible-extract": 0.0
+    }
+  },
+  "output_length": {
+    "gsm8k_chat_zs": {
+      "n_docs": 4,
+      "avg_output_chars": 670.25,
+      "avg_output_tokens": 196.5,
+      "max_output_tokens": 299,
+      "frac_hit_max_gen_toks": 0.0
+    }
+  },
+  "robust_extract": {
+    "gsm8k_chat_zs": {
+      "n_docs": 4,
+      "accuracy": 1.0,
+      "frac_extracted": 1.0
+    }
+  },
+  "format": {
+    "gsm8k_chat_zs": {
+      "n_docs": 4,
+      "frac_hash_answer": 0.5
+    }
+  },
+  "n_samples": {
+    "gsm8k_chat_zs": {
+      "original": 1319,
+      "effective": 4
+    }
+  },
+  "runtime_seconds_total": 43.27445254099439,
+  "merged_from": [
+    "20261107-062327_gsm8k_chat_dense_qwen_shard0of2_s0",
+    "20261107-062352_gsm8k_chat_dense_qwen_shard1of2_s0"
+  ],
+  "merge_checks": {
+    "num_shards": 2,
+    "n_docs": 4,
+    "limit": 4,
+    "commits": [
+      "23d60f961631f1e80c9dc1628cffbd412d490b05"
+    ],
+    "dirty_shards": []
+  }
+}

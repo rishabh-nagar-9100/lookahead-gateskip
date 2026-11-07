@@ -1,0 +1,16 @@
+[
+  {
+    "split": "train",
+    "source": "gsm8k",
+    "prompt": "<|im_start|>system\nSolve the math problem step by step. End your answer with a final line of the form '#### N', where N is the final answer as a plain number with no units or symbols.<|im_end|>\n<|im_start|>user\nNatalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?<|im_end|>\n<|im_start|>assistant\n",
+    "learned": "Natalia sold 48/2 = <<48/2=24>>24 clips in May.\nNatalia sold 48+24 = <<48+24=72>>72 clips altogether in April and May.\n#### 72<|im_end|>",
+    "after_learned": "\n"
+  },
+  {
+    "split": "calibration",
+    "source": "gsm8k",
+    "prompt": "<|im_start|>system\nSolve the math problem step by step. End your answer with a final line of the form '#### N', where N is the final answer as a plain number with no units or symbols.<|im_end|>\n<|im_start|>user\nTina makes $18.00 an hour.  If she works more than 8 hours per shift, she is eligible for overtime, which is paid by your hourly wage + 1/2 your hourly wage.  If she works 10 hours every day for 5 days, how much money does she make?<|im_end|>\n<|im_start|>assistant\n",
+    "learned": "She works 8 hours a day for $18 per hour so she makes 8*18 = $<<8*18=144.00>>144.00 per 8-hour shift\nShe works 10 hours a day and anything over 8 hours is eligible for overtime, so she gets 10-8 = <<10-8=2>>2 hours of overtime\nOvertime is calculated as time and a half so and she makes $18/hour so her overtime pay is 18*.5 = $<<18*.5=9.00>>9.00\nHer overtime pay is 18+9 = $<<18+9=27.00>>27.00\nHer base pay is $144.00 per 8-hour shift and she works 5 days and makes 5 * $144 = $<<144*5=720.00>>720.00\nHer overtime pay is $27.00 per hour and she works 2 hours of overtime per day and makes 27*2 = $<<27*2=54.00>>54.00 in overtime pay\n2 hours of overtime pay for 5 days means she makes 54*5 = $270.00\nIn 5 days her base pay is $720.00 and she makes $270.00 in overtime pay so she makes $720 + $270 = $<<720+270=990.00>>990.00\n#### 990<|im_end|>",
+    "after_learned": "\n"
+  }
+]

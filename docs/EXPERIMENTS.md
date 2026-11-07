@@ -23,6 +23,8 @@ Rules:
 
 ## Planned experiments
 
+**Primary model (D-23, 2026-11-07):** Qwen2.5-1.5B-Instruct until the Llama licence arrives. Rows that still say "Llama-3.2-1B" run on Qwen first; Llama is added as the replication. GPU: Colab L4 (bf16) for training and reported evals; T4 runs are setup checks only.
+
 | ID | Goal | Model | Notes | Status |
 |---|---|---|---|---|
 | E0 | Dense baseline | Llama-3.2-1B-Instruct (+ Qwen2.5-1.5B-Instruct) | GSM8K first, then all four. Llama gated access pending → 50-problem smoke run done on Qwen first. Qwen 50-problem D-08 smoke re-run under pure greedy (D-21): 62.0% strict / flexible, run 182046 | in progress |
@@ -32,14 +34,14 @@ Rules:
 | E1-official | D-12(c) reproduction check | Llama-3.2-1B (base) | Official code at the pinned commit, native format, 0% and 15%. Our port must match within seed noise (P4-06) | todo |
 | E2 | Error-token analysis | Llama-3.2-1B + GateSkip | tag tokens; compare skip rates on failed vs passed problems | todo |
 | E3 | Adjacent-token gate correlation | Llama-3.2-1B + GateSkip | Pearson r for lags 1–8, per layer | todo |
-| E-DFT | Dense-FT reference (0% compute) | Llama-3.2-1B-Instruct | Same chat data, recipe, steps and seeds as E1/E4, no router or gates (D-15). GSM8K main protocol, 3 seeds. Seed-1 model gates the format check P3-08 | todo |
-| E4 | Main result | Llama-3.2-1B, ours | GSM8K, 3 seeds, 3 budgets | todo |
+| E-DFT | Dense-FT reference (0% compute) | Qwen2.5-1.5B-Instruct first (E-DFT-Q, D-23); Llama when approved | Same chat data, recipe, steps and seeds as E1/E4, no router or gates (D-15). GSM8K main protocol, 3 seeds. Seed-1 model gates the format check P3-08 | todo |
+| E4 | Main result | Qwen2.5-1.5B, ours (D-23; Llama-3.2-1B when approved) | GSM8K, 3 seeds, 3 budgets | todo |
 | E5 | Full suite vs baselines | Llama-3.2-1B | GateSkip, FlexiDepth, D-LLM, FFN-skip, random | todo |
 | E6 | Ablation: EMA off | Llama-3.2-1B | router input = h only | todo |
 | E7 | Ablation: α | Llama-3.2-1B | 0.5 / 0.7 / 0.9 | todo |
 | E8 | Ablation: previous-token gate | Llama-3.2-1B | replace μ_t with g_(t−1) as extra input | todo |
 | E9 | Ablation: no ΔAttn; two tiers | Llama-3.2-1B | isolates the MLP head and Tier 2 | todo |
-| E10 | Replication | Qwen2.5-1.5B | E4 + E5 subset | todo |
+| E10 | Replication | Llama-3.2-1B (D-23: was Qwen; Qwen is now primary) | E4 + E5 subset, once the Llama licence is approved | todo |
 | E-DFT-Q | Dense-FT reference (0% compute) | Qwen2.5-1.5B-Instruct | As E-DFT, for E10 | todo |
 | E11 | Latency | both | bs=1; CUDA + MPS; ms/token, time/problem, length, memory | todo |
 | E12 | Current vs lookahead decision mode (D-22, proposed) | Llama-3.2-1B (+ Qwen if it works) | Accuracy (GSM8K, then the suite) and bs=1 latency (ms/token, time per problem; E11 harness) of the current mode vs lookahead mode **at the same compute budgets** (3 budgets, matched by calibration), on **both CUDA and MPS**. Lookahead variants for the MLP head: (b) no ΔAttn, (a) ΔAttn from t−1, then (c) hybrid as a middle point. Same training recipe and seeds as E4. Report the agreement between lookahead decisions and the current mode's decisions per layer. **Not before Phase 3 training works on the GPU; decide after the first CUDA numbers** | proposed |
@@ -69,6 +71,11 @@ Rules:
 | 20261106-182046_gsm8k_dense_qwen_s0 | E0 | 2026-11-06 | 4c627b3 | configs/eval/gsm8k_dense_qwen.yaml | 0 | 0% | 62.0% strict / 62.0% flexible (±6.9); robust 68.0% | | | | 0% | 128 tok (max 512; 2% hit cap) | **D-21 re-run, pure greedy** (repetition_penalty 1.0 recorded in lm-eval generation_kwargs), Qwen2.5-1.5B-Instruct, MPS fp16, --limit 50, D-08 protocol. Same accuracy as the penalty-1.1 run 053918 (62.0 / 62.0), but 0/50 outputs identical and 10 docs flip correctness (5 each way: 5, 26, 31, 39, 45 lost; 19, 29, 30, 38, 41 gained). Shorter outputs (128 vs 143 tok). One cap hit (doc 13: long LaTeX algebra, not a repetition loop). 360 s total (no downloads). **Replaces 053918 as the Qwen D-08 smoke reference** |
 | 20261106-190740_realcheck_qwen_mps_s0 | P5-06 | 2026-11-06 | b0bed38 | configs/checks/qwen_mps.yaml | 0 | – | – | – | – | – | – | – | Same checks + `sync_mode: per_layer`. T-EQ 0.0; pure-greedy match 3/3. ms/token (median over prompts): HF 38.9, dense 40.8 (1.05×), decision path Tier 1 61.6 (1.58×), our router no-skip per_module 65.1 (1.68×), **per_layer 62.2 (1.60×)**. Halving the syncs saves only ≈ 3 ms/token: any sync inside the layer loop drains the queue. Getting to dense speed needs ≈ 0 in-loop syncs (D-22) |
 | 20261106-191705_gpu_budget_s0 | P0-14 | 2026-11-07 | a6727f0 | configs/budget/gpu_budget.yaml | 0 | – | – | – | – | – | – | – | Analytic GPU-hour estimate (no GPU). Minimal plan: A100 28 h (batched evals) / 101 h (bs=1 evals); 4090 36 / 94 h. Full plan: A100 91 / 459 h; 4090 111 / 404 h. Training is 15–38 h; bs=1 evaluation dominates (P5-08). Assumptions unmeasured (±2×), see GPU_BUDGET.md |
+| 20261107-062308_prepare_d06_qwen_s0 | P3-06 | 2026-11-07 | 23d60f9 | configs/data/prepare_d06_qwen.yaml (--sources gsm8k) | 0 | – | – | – | – | – | – | – | D-06 data in chat format, **GSM8K only** (CSQA not downloaded yet), Qwen2.5 tokenizer. Train 6,973 / calibration 500 (fixed hold-out, split_seed 1234). Tokens per example: mean 236, p50 223, p99 442, max 590; none dropped at 1,024. Learned tokens per example: mean 123 (assistant content + `<|im_end|>`). Rendered example checked: system = eval instruction verbatim; the template's trailing `\n` is not learned |
+| 20261107-062327_gsm8k_chat_dense_qwen_shard0of2_s0 | P0-15 check | 2026-11-07 | 23d60f9 | configs/eval/gsm8k_chat_dense_qwen.yaml | 0 | 0% | 2 docs | | | | | | **Pipeline check, not a result.** Shard 0/2 of --limit 4, MPS fp16, untrained Qwen under the D-15 chat protocol |
+| 20261107-062352_gsm8k_chat_dense_qwen_shard1of2_s0 | P0-15 check | 2026-11-07 | 23d60f9 | configs/eval/gsm8k_chat_dense_qwen.yaml | 0 | 0% | 2 docs | | | | | | **Pipeline check.** Shard 1/2 of the same |
+| 20261107-062443_gsm8k_chat_dense_qwen_merged2_s0 | P0-15 check | 2026-11-07 | e48e258 | configs/eval/gsm8k_chat_dense_qwen.yaml | 0 | 0% | 50% strict / 100% flexible (4 docs) | | | | | 197 tok | **Pipeline check.** Merge of the two shards (merge script at e48e258; shards at 23d60f9, same code apart from the merge fix) |
+| 20261107-062450_gsm8k_chat_dense_qwen_s0 | P0-15 check | 2026-11-07 | e48e258 | configs/eval/gsm8k_chat_dense_qwen.yaml | 0 | 0% | 50% strict / 100% flexible (4 docs) | | | | | 197 tok | **Pipeline check.** The same 4 problems unsharded: **identical outputs to the sharded runs (4/4)**, identical metrics and stderr as the merge |
 
 ## Results summary (update after each experiment)
 

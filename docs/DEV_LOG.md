@@ -12,6 +12,41 @@ Newest entry first. One entry per work session. Keep it short and factual.
 **Next:**
 ```
 
+### 2026-11-07 · Colab runner + P3-06 · P0-15, P3-06, D-23, D-13 notes
+**Done:**
+- **D-23:** Qwen2.5-1.5B-Instruct is the primary model until Llama access arrives. GPU = Colab: T4 fp16 for tests, smoke runs and speed checks; L4 bf16 for training and reported evaluations.
+- **D-13:** T4/L4 notes added. LoRA (b) is the only fair option that fits an L4; the decision is still open.
+- **`notebooks/colab_runner.ipynb` + `scripts/colab_helpers.py`:**
+  - Drive persistence;
+  - tokens from Colab Secrets via an inline git credential helper (never written or printed);
+  - one config-driven cell per job;
+  - only small result files are pushed.
+- **Training loop:**
+  - a checkpoint every N min to Drive with exact resume;
+  - autocast with fp32 trainables;
+  - `export: hf` (merged LoRA) for Dense-FT evaluation;
+  - real chat data.
+- **Evaluation:** `eval_dense.py --shard/--num-shards`, `doc_ids` (the calibration split for P3-08) and a `format` metric (share of `#### N`). New `scripts/merge_shards.py`.
+- **GPU and dtype:** the GPU type goes in every meta.json, and bf16 falls back to fp16 on a T4 (`lagate.utils`).
+- **New scripts and configs:** `scripts/calibrate.py`, `configs/train/denseft_qwen.yaml` and the Dense-FT eval configs (test set and P3-08 calibration split).
+- **P3-06** (`lagate.training.chat_data`): GSM8K converted and checked on the real Qwen tokenizer.
+
+**Results / numbers:**
+- **P3-06** (`20261107-062308`): 6,973 train / 500 calibration examples, mean 236 tokens, p99 442, 0 dropped.
+- **Sharding check** (`062327`/`062352` → merge `062443` vs unsharded `062450`): identical outputs (4/4) and identical metrics.
+- **Tests:** 177 pass (was 141).
+
+**Problems:**
+- `merge_shards` first refused because `--limit` is written into the saved config. It now ignores `eval.limit` but requires it to be equal across shards.
+- `.gitignore`'s `checkpoints/` doesn't match a symlink, so every Colab run would have been marked dirty. Added `checkpoints` and `results/raw` without the trailing slash; tested.
+- lm-eval's `samples=` renumbers doc_id from 0 within a shard. The original ids are kept in `metrics.shard.doc_ids`.
+- An empty `.env` could clobber a token already in the environment in `setup_gpu.sh`. Fixed: `.env` is now only read when `HF_TOKEN` is unset.
+
+**Next:**
+- CSQA download (needs OK) → finish P3-06.
+- Confirm D-13.
+- Colab S1 on a T4.
+
 ---
 
 ### 2026-11-07 · D-22 / E12 / P5-08 aligned with Rishabh's spec

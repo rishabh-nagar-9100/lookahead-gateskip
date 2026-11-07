@@ -92,6 +92,12 @@ Format: ID · date · decision · alternatives considered · reason · status (a
   - (c) Both use full fine-tuning. Fair and strong, but needs ≥ 40–80 GB VRAM.
 - **Lean:** (b) for the main comparison plus (a) for GateSkip as a reference row. The final choice depends on the GPU (P0-02).
 - **Decide in:** P3-01, once GPU details are known.
+- **Colab notes (2026-11-07, D-23):** the GPU is Google Colab.
+  - **T4** (16 GB, sm_75): no native bf16, so it runs in fp16. It is used **only for tests, smoke runs and speed checks**. No training on a T4: fp16 training would add loss scaling and a dtype nobody else in the comparison uses. The training configs refuse to run there.
+  - **L4** (24 GB, bf16): option (b) fits. The frozen bf16 base is ≈ 3.1 GB, the LoRA r=16 and router weights are fp32 (`train.precision: autocast`), and activations at micro-batch 4 × ≤ 1,024 tokens fit with grad_accum 4.
+  - Option (c) does **not** fit on an L4. Full fine-tuning of 1.5B parameters with fp32 master weights and AdamW needs ≈ 1.54B × (4 + 4 + 8) B ≈ 25 GB before activations. Keeping bf16-only weights instead doesn't work at GateSkip's lr 3e-6: an update of ≈ 1e-5 of a weight is far below bf16's resolution (2⁻⁸ ≈ 4e-3), so most updates round to zero.
+  - So on the L4, (b) is the only fair option. (a)'s GateSkip full fine-tune reference row needs an A100 80 GB, which Colab offers only intermittently.
+  - **Recommendation:** decide (b) for the main comparison now; keep the (a) reference row as optional, run only if an A100 session is available. Still open until Rishabh confirms. `configs/train/denseft_qwen.yaml` already uses (b) and is marked pending.
 
 ### D-14 · 2026-11-06 · superseded by D-15 · Dense reference under D-11 = fine-tuned model at 0% skip; untrained dense is reported under D-08 only
 - **Evidence:** run `20261106-060855_gsm8k_zs_dense_qwen_s0`. Untrained Qwen2.5-1.5B-Instruct under D-11 scored 0.0% strict and 16.0% flexible on 50 problems; 0/50 outputs used `#### N`, and 40% ran to the 512-token cap. The same model scored 62.0% on the same 50 problems under D-08. Without the chat template the Instruct model never emits an end-of-turn token, so it runs on after answering.
@@ -248,3 +254,35 @@ ARCHITECTURE.md does not pin these down; the choices below are what the code doe
 - **Experiment:** E12 (EXPERIMENTS.md). **Implementation:** P5-07, not before Phase 3 training works on the GPU.
 - **Decision point:** after the first CUDA latency numbers (P0-13 / E11). If the current mode is already fast enough on CUDA, lookahead is still worth E12 for the MPS / edge setting and for G1, but as lower priority.
 - **Status:** proposed (wording aligned with Rishabh, 2026-11-07).
+
+### D-23 · 2026-11-07 · active · Qwen2.5-1.5B-Instruct is the primary model until Llama access arrives; GPU = Google Colab (T4 for setup, L4 for training)
+- **Context:**
+  - The Llama-3.2 licence is still pending (P0-01: 403).
+  - The GPU will be Google Colab: a free T4 for setup and tests, and a paid L4 for training.
+- **Decision:**
+  1. **Primary model = Qwen2.5-1.5B-Instruct** for E-DFT (as E-DFT-Q), E1–E4 and the ablations. Llama-3.2-1B-Instruct is added when the licence is approved and takes the replication role that E10 had for Qwen. If Llama arrives before E4 is final, decide in a new entry whether to switch back. Everything stays model-agnostic: the adapter, FLOP configs, engine and data support both.
+  2. **GPU roles.**
+     - T4: fp16, used for `pytest`, T-EQ, smoke runs and speed checks only. T4 latency is a setup check, not an E11 number.
+     - Training and every reported evaluation: L4 (bf16) or A100.
+     - `dtype: auto` resolves to bf16 on Ampere and newer and to fp16 on a T4 (`lagate.utils.resolve_dtype_name`). A configured bf16 on a T4 falls back to fp16, and both names go into meta.json.
+     - Every run's meta.json records the GPU name, memory, compute capability and native-bf16 support (`accelerator`).
+  3. **Sessions end without warning.**
+     - Training checkpoints the trainable state, optimiser, scheduler, RNG and log every 30 min to Drive (`checkpoint.every_minutes`), and a restart resumes exactly. The test `test_resume_matches_uninterrupted_run` kills a run mid-step and gets the same losses and weights as an uninterrupted run.
+     - Resuming under a different training config is refused (config digest).
+     - Evaluation runs in shards (`--shard i --num-shards n`), and `scripts/merge_shards.py` merges them. It refuses missing or overlapping shards, mixed GPU types or dtypes, and code that differs between shards (commits that differ only in results/ or docs/ count as the same code).
+     - Sharded and unsharded runs gave identical outputs on 4 problems (runs `062327`/`062352` vs `062450`).
+  4. **Only small result files are committed** (config, meta, metrics, thresholds). Raw generations, checkpoints and the HF cache stay on Drive (`MyDrive/lagate/`). Tokens come from Colab Secrets and are never written to a file: git uses an inline credential helper that reads `$GITHUB_TOKEN` at call time.
+  5. **P3-06 data details** (D-06/D-15 left these open):
+     - **GSM8K target:** the assistant target is the dataset's own answer text, `"{steps}\n#### N"`. GateSkip's `f" {steps}\n#### {answer}"` leaves a blank line before `####`, because its split keeps the trailing newline.
+     - **Calculator annotations** (`<<48/2=24>>`) are kept, as in GateSkip (`strip_calculator_annotations` exists for an ablation).
+     - **Loss** covers the assistant content plus the first end-of-turn token (`<|im_end|>` / `<|eot_id|>`), so the model learns to stop. The template's trailing newline is masked.
+     - **Calibration hold-out:** 500 GSM8K + 500 CSQA train rows, chosen with a fixed `split_seed` 1234 (the same for every method and seed). They are used for thresholds and for the P3-08 check (task `gsm8k_chat_zs_calib` on the same pinned GSM8K snapshot). The test sets are never touched.
+     - **Dropping:** examples over 1,024 tokens are dropped and counted (none for GSM8K with the Qwen tokenizer).
+     - **CommonsenseQA instruction:** "Answer the multiple-choice question step by step. End your answer with a final line of the form '#### X', where X is the letter of the correct choice."
+- **Consequences:**
+  - The EXPERIMENTS model columns now read "Qwen2.5-1.5B (D-23)".
+  - E1-official / D-12(c) still needs base Llama-3.2-1B and stays blocked.
+  - For G5, report both models' gate costs: GateSkip's gates are 13.7% of a dense layer on Llama and 10.0% on Qwen.
+  - The Llama-3.2 chat template inserts today's date into the system turn. When Llama is added, pin `date_string` for training and evaluation, or the prompts differ by the day they run on.
+- **Status:** active.
+
