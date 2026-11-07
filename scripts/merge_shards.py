@@ -8,8 +8,9 @@ Usage:
 Checks before merging (any failure aborts):
   * every run used this config (identical config.yaml except ``eval.limit``, which --limit writes
     into it and which must be the same in every shard),
-  * the same git commit and a clean tree in every shard (``--allow-dirty`` / ``--allow-mixed-commits``
-    relax this, and the merged meta records it),
+  * the same code in every shard: identical commits, or commits that differ only in results/ and
+    docs/ (result commits pushed from Colab between sessions), and a clean tree
+    (``--allow-dirty`` / ``--allow-mixed-commits`` relax this, and the merged meta records it),
   * the same seed, device type, dtype and GPU name,
   * shard indices 0..n-1 each present exactly once, the doc ids disjoint, and their union equal to
     the full selection.
@@ -30,7 +31,7 @@ from typing import Any
 
 import yaml
 
-from lagate.utils import REPO_ROOT, create_run_dir, load_config, save_json, set_seed
+from lagate.utils import REPO_ROOT, create_run_dir, load_config, same_code, save_json, set_seed
 
 
 def parse_args() -> argparse.Namespace:
@@ -73,8 +74,10 @@ def check_shards(runs: list[dict], cfg: dict, seed: int, allow_dirty: bool, allo
     if problems:
         raise SystemExit("\n".join(problems))
     commits = {r["meta"]["git"]["commit"] for r in runs}
-    if len(commits) > 1 and not allow_mixed:
-        raise SystemExit(f"shards ran at different commits {sorted(commits)} (--allow-mixed-commits to override)")
+    first = sorted(commits)[0]
+    code_differs = [c for c in commits if not same_code(first, c)]
+    if code_differs and not allow_mixed:
+        raise SystemExit(f"shards ran different code: {sorted(commits)} (--allow-mixed-commits to override)")
     dirty = [r["dir"].name for r in runs if r["meta"]["git"].get("dirty")]
     if dirty and not allow_dirty:
         raise SystemExit(f"shards from a dirty tree: {dirty} (--allow-dirty to override)")
@@ -99,7 +102,8 @@ def check_shards(runs: list[dict], cfg: dict, seed: int, allow_dirty: bool, allo
     n_sel = {s["n_selected"] for s in shards}
     if len(n_sel) != 1 or len(ids) != n_sel.pop():
         raise SystemExit("the shards do not cover the full selection")
-    return {"num_shards": n, "n_docs": len(ids), "limit": limits.pop(), "commits": sorted(commits), "dirty_shards": dirty}
+    return {"num_shards": n, "n_docs": len(ids), "limit": limits.pop(), "commits": sorted(commits),
+            "code_identical": not code_differs, "dirty_shards": dirty}
 
 
 def _weighted(values: list[tuple[float, int]]) -> float:

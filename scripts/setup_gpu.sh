@@ -21,7 +21,8 @@
 #   HF_HOME       (put it on a persistent volume on cloud machines; models are ≈ 3 GB each)
 #
 # Never pass tokens on the command line or write them into tracked files. HF_TOKEN goes in .env
-# (git-ignored, chmod 600). For a private GitHub clone use `gh auth login` or a credential helper.
+# (git-ignored, chmod 600) or, on Colab, in Colab Secrets (exported by notebooks/colab_runner.ipynb).
+# For a private GitHub clone use `gh auth login` or a credential helper.
 set -euo pipefail
 
 LAGATE_REPO="${LAGATE_REPO:-https://github.com/rishabh-nagar-9100/lookahead-gateskip.git}"
@@ -98,6 +99,10 @@ stage_test() {
   pytest -q -o addopts="" | tail -3
 }
 
+# HF_TOKEN from .env, unless it is already in the environment (Colab Secrets): an empty .env
+# must never clobber it. Nothing is printed.
+load_env() { if [ -z "${HF_TOKEN:-}" ] && [ -f .env ]; then set -a; source .env; set +a; fi; }
+
 llama_access() {
   python - <<'PY'
 import os, sys
@@ -115,7 +120,7 @@ PY
 
 stage_teq() {
   activate
-  set -a; [ -f .env ] && source .env; set +a   # HF_TOKEN into the environment (not printed)
+  load_env
   export HF_HUB_OFFLINE=0 HF_DATASETS_OFFLINE=0  # first run downloads models / GSM8K into $HF_HOME
   log "real-model checks: Qwen2.5-1.5B (T-EQ fp32 + bf16, greedy match, bs=1 latency)"
   python scripts/real_model_checks.py --config configs/checks/qwen_cuda.yaml --seed 0
@@ -129,7 +134,7 @@ stage_teq() {
 
 stage_smoke() {
   activate
-  set -a; [ -f .env ] && source .env; set +a
+  load_env
   local cfg=configs/eval/gsm8k_dense_qwen.yaml
   if llama_access; then cfg=configs/eval/gsm8k_dense_llama.yaml; fi
   log "50-problem GSM8K smoke test (D-08): $cfg"

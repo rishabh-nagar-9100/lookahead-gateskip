@@ -3,7 +3,9 @@
 
 # Raw outputs, weights, tracking
 results/raw/
+results/raw
 checkpoints/
+checkpoints
 *.safetensors
 wandb/
 

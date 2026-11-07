@@ -91,6 +91,22 @@ def git_info(
     return {"commit": commit, "dirty": bool(changes)}
 
 
+NON_CODE_PREFIXES = ("results/", "docs/")
+
+
+def same_code(commit_a: str, commit_b: str, repo: Path = REPO_ROOT) -> bool:
+    """True if the two commits differ only in results/ and docs/ (e.g. result commits pushed
+    from Colab between two shards of one evaluation), so runs at either commit used the same code."""
+    if commit_a == commit_b:
+        return True
+    try:
+        out = subprocess.run(["git", "diff", "--name-only", commit_a, commit_b], cwd=repo,
+                             capture_output=True, text=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    return all(p.startswith(NON_CODE_PREFIXES) for p in out.split())
+
+
 def package_versions(packages: tuple[str, ...] = TRACKED_PACKAGES) -> dict[str, str | None]:
     """Installed versions of the tracked packages (None if not installed)."""
     versions: dict[str, str | None] = {}
