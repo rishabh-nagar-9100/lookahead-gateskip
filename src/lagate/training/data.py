@@ -1,5 +1,5 @@
-"""Training data. For now only the synthetic source used by the P2-08 smoke run; the D-06 chat-format
-data (P3-06) will add a second source behind the same ``make_batches`` interface.
+"""Training data behind one ``make_batches`` interface: ``source: synthetic`` (P2-08 smoke runs) and
+``source: chat`` (the D-06 data in chat format, P3-06, ``lagate.training.chat_data``).
 
 Synthetic sequences: random start a and step d, token_t = (a + t·d) mod V (tokens 0 and 1 are
 reserved as pad and EOS). The next token is predictable from the previous two, so a tiny model's
@@ -42,9 +42,15 @@ def collate(seqs: list[list[int]]) -> Batch:
     return Batch(ids, mask, labels)
 
 
-def make_batches(data_cfg: dict, vocab: int, seed: int, split: str = "train") -> Iterator[Batch]:
+def make_batches(data_cfg: dict, vocab: int, seed: int, split: str = "train", chat=None) -> Iterator[Batch]:
+    """``chat``: a ``ChatDataset`` (required for ``source: chat``)."""
+    if data_cfg["source"] == "chat":
+        if chat is None:
+            raise ValueError("source: chat needs a ChatDataset (built from the model's tokenizer)")
+        yield from chat.batches(split, data_cfg["batch_size"], seed)
+        return
     if data_cfg["source"] != "synthetic":
-        raise NotImplementedError(f"data source {data_cfg['source']!r} (chat-format D-06 data is P3-06)")
+        raise ValueError(f"unknown data source {data_cfg['source']!r}")
     offset = {"train": 0, "calibration": 1_000_003, "eval": 2_000_003}[split]
     gen = torch.Generator().manual_seed(seed + offset)
     lo, hi = data_cfg["min_len"], data_cfg["max_len"]

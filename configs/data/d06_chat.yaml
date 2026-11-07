@@ -1,0 +1,24 @@
+# D-06 training data in chat format (D-15, P3-06). Loaded by lagate.training.chat_data.
+# Same mix as GateSkip's csqa_gsm8k_gen (CommonsenseQA + Nemotron-70B traces, GSM8K train).
+source: chat
+datasets:
+  gsm8k:
+    path: openai/gsm8k
+    name: main
+    split: train
+    revision: 740312add88f781978c0658806c59bc2815b9866   # HF hub snapshot used since P0-06
+  csqa:
+    path: multi-domain-reasoning/commonsense_qa
+    name: null
+    split: train
+    revision: null          # TODO(P3-06): pin the snapshot hash after the first (approved) download
+system_instruction:
+  gsm8k: {from_eval_config: configs/eval/gsm8k_chat_dense_qwen.yaml}   # verbatim, D-15 item 1
+  csqa: "Answer the multiple-choice question step by step. End your answer with a final line of the form '#### X', where X is the letter of the correct choice."
+end_of_turn_tokens: ["<|im_end|>", "<|eot_id|>"]   # Qwen2.5, Llama-3.x chat templates
+max_length: 1024            # GateSkip: sequences longer than max length are dropped
+strip_calculator_annotations: false   # keep "<<a*b=c>>" as GateSkip does
+split_seed: 1234            # fixed for every method and seed; NOT the run seed
+calibration_size:           # held out from the train split (thresholds, P3-08); test sets never touched
+  gsm8k: 500
+  csqa: 500

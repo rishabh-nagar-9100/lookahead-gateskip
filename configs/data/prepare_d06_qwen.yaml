@@ -1,0 +1,6 @@
+# P3-06: build the D-06 chat-format data for one tokenizer and record its statistics (no training).
+name: prepare_d06_qwen
+data_config: configs/data/d06_chat.yaml
+tokenizer: Qwen/Qwen2.5-1.5B-Instruct
+sources: [gsm8k, csqa]        # --sources overrides (e.g. gsm8k only, before CSQA is downloaded)
+n_rendered_examples: 1        # per source and split: the rendered chat text, for eyeballing the format
