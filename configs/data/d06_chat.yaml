@@ -11,7 +11,7 @@ datasets:
     path: multi-domain-reasoning/commonsense_qa
     name: null
     split: train
-    revision: null          # TODO(P3-06): pin the snapshot hash after the first (approved) download
+    revision: a7b9ab84097381bb520498175844d1c4d7db728a   # HF hub snapshot, first downloaded 2026-11-07 (13.7 MB parquet, 9,741 rows)
 system_instruction:
   gsm8k: {from_eval_config: configs/eval/gsm8k_chat_dense_qwen.yaml}   # verbatim, D-15 item 1
   csqa: "Answer the multiple-choice question step by step. End your answer with a final line of the form '#### X', where X is the letter of the correct choice."
