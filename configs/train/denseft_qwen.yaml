@@ -1,38 +1,17 @@
 # P3-07 Dense-FT reference (D-15 item 4, E-DFT-Q): Qwen2.5-1.5B-Instruct (primary model, D-23) fine-tuned
-# on the D-06 chat data with NO router or gates. Same recipe / steps / seeds as the gated methods.
-# Runs on a Colab L4 (bf16). Not on a T4 (D-13 notes): fp16 training is not used in this project.
-# PENDING D-13: LoRA r=16 is the lean (option b) and the only option that fits a 24 GB L4; confirm D-13
-# before the first real run (changing finetune.* changes the config digest, so a checkpoint can't be resumed across it).
+# on the D-06 chat data with NO router or gates. Recipe = configs/train/recipes/qwen_lora16.yaml (D-13),
+# identical to the GateSkip port and our method. Runs on a Colab L4 (bf16), never on a T4.
 name: denseft_qwen
 device: auto
 model:
   pretrained: Qwen/Qwen2.5-1.5B-Instruct
-  dtype: auto                     # bf16 on L4/A100 (frozen base weights); fp16 on T4
+  dtype: auto                     # frozen base weights: bf16 on L4/A100
   attn_implementation: sdpa       # eager overflows in fp16 on Qwen2.5 (P2-01)
-finetune:
-  mode: lora
-  lora_r: 16
-  lora_alpha: 32
-  lora_dropout: 0.0
-  lora_target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+recipe: configs/train/recipes/qwen_lora16.yaml
 method:
   name: dense                     # LookaheadGatedModel with the router off (T-EQ: identical to HF)
   router_config: configs/router/lagate.yaml
-  sparsity_weight: 0.0
-data:
-  config: configs/data/d06_chat.yaml
-  batch_size: 4                   # micro-batch; OOM on 24 GB -> 2 with grad_accum 8 (same effective batch)
-train:
-  steps: 1013                     # 1 epoch: floor(16,211 train examples / 16 per step), run 20261107-063707 (Qwen tokenizer)
-  grad_accum: 4                   # effective batch 16 sequences
-  lr: 2.0e-4                      # LoRA
-  router_lr: 0.0                  # no router in Dense-FT (group is empty)
-  warmup_steps: 30
-  lr_decay_steps: 1013            # linear decay to 0 at the last step
-  weight_decay: 0.0
-  max_grad_norm: 1.0
-  precision: autocast             # LoRA weights fp32, forward in the model dtype (bf16)
-  log_every: 10
+  sparsity_weight: 0.0            # no gates, no sparsity loss
 checkpoint:
   enabled: true
   every_minutes: 30               # Colab sessions end without warning; resume is automatic on restart

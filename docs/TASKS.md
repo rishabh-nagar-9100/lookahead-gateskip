@@ -83,7 +83,7 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 ## Colab session plan (D-23)
 Each session: open `notebooks/colab_runner.ipynb`, run Setup, then only that session's job cells. Results are pushed from Colab; register them in EXPERIMENTS.md afterwards.
 - [ ] **S1 · T4 (free) · setup + smoke + speed.** P0-13 first half: `setup_gpu.sh env`, `test`, `teq` (dims, full-scale T-EQ fp32/fp16, greedy match, bs=1 speed check HF vs dense engine vs routing path), `smoke` (50-problem D-08, Qwen reference 62.0%). Speed numbers on T4 are setup checks only.
-- [ ] **S2 · L4 · Dense-FT + P3-08.** Prerequisite: D-13 confirmed (P3-06 is done). Steps:
+- [ ] **S2 · L4 · Dense-FT + P3-08.** Prerequisites met: D-13 active (LoRA r=16, shared recipe `configs/train/recipes/qwen_lora16.yaml`), P3-06 done. Steps:
   1. Re-run `teq` on the L4 for bf16 numbers.
   2. Time 200 steps (P0-13 second half).
   3. P3-07: `configs/train/denseft_qwen.yaml`, seed 1.
@@ -129,7 +129,6 @@ Each session: open `notebooks/colab_runner.ipynb`, run Setup, then only that ses
 
 ## Blocked / waiting
 - P0-01 Llama licence approval (token done) — waiting on Meta/Hugging Face
-- D-13 fine-tuning mode: recommendation (b) LoRA r=16 (the only fair option that fits an L4, D-13 Colab notes) — waiting on Rishabh
 - ~~P0-03 GitHub remote~~ done 2026-11-07
 - P0-07 run GateSkip: needs GPU (P0-02), base Llama-3.2-1B access (P0-01), OK to install its deps
 - P0-06 Llama E0 runs — blocked on P0-01; full set ideally on GPU (≈12 s/problem on MPS → ~4.5 h for 1,319)

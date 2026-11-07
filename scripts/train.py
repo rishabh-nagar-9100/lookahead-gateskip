@@ -15,7 +15,7 @@ import argparse
 
 from dotenv import load_dotenv
 
-from lagate.training.loop import checkpoint_dir, run
+from lagate.training.loop import checkpoint_dir, resolve_recipe, run
 from lagate.utils import REPO_ROOT, create_run_dir, load_config, resolve_device, set_seed
 
 
@@ -25,7 +25,7 @@ def main() -> None:
     p.add_argument("--seed", type=int, required=True)
     args = p.parse_args()
     load_dotenv(REPO_ROOT / ".env")
-    cfg = load_config(args.config)
+    cfg = resolve_recipe(load_config(args.config))  # saved resolved: config.yaml shows the full recipe
     set_seed(args.seed)
     device = resolve_device(cfg.get("device", "cpu"))
     ck = checkpoint_dir(cfg, args.seed) / "latest.pt"

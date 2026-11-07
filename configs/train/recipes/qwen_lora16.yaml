@@ -1,0 +1,25 @@
+# D-13 (active): the ONE fine-tuning recipe of the main comparison on Qwen2.5-1.5B-Instruct (D-23).
+# Used unchanged by Dense-FT (configs/train/denseft_qwen.yaml), the GateSkip port and our method:
+# configs that name this recipe may not set finetune / data / train themselves (lagate.training.loop.resolve_recipe).
+# Router / gate parameters are trained fully in the gated methods, at method.router_lr (method block).
+# The official-recipe reproduction check D-12(c) (full fine-tune, base Llama) is separate and does not use this.
+finetune:
+  mode: lora
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.0
+  lora_target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+data:
+  config: configs/data/d06_chat.yaml   # D-06 mix in chat format (P3-06): 16,211 train examples with the Qwen tokenizer
+  batch_size: 4                        # micro-batch
+train:
+  steps: 1013                          # 1 epoch: floor(16,211 / 16), run 20261107-063707
+  grad_accum: 4                        # effective batch 16 sequences
+  lr: 2.0e-4                           # LoRA weights
+  warmup_steps: 30
+  lr_decay_steps: 1013                 # linear decay to 0 at the last step
+  weight_decay: 0.0
+  max_grad_norm: 1.0
+  precision: autocast                  # D-13 cond. 2: trainable params (LoRA + routers) stored fp32; bf16 autocast for fwd/bwd
+  autocast_dtype: auto                 # bf16 on L4/A100; training is refused on a T4 (no native bf16) by the Colab runner
+  log_every: 10

@@ -84,20 +84,31 @@ Format: ID · date · decision · alternatives considered · reason · status (a
 - **Reason:** a fair, deployable bs=1 comparison at matched compute (D-05). Their native mode can't produce bs=1 decode savings.
 - **Status:** active. Needs a GPU (P0-02).
 
-### D-13 · open · Fine-tuning mode: full fine-tune (GateSkip recipe) vs LoRA r=16 (our plan)
+### D-13 · 2026-11-07 · active · Fine-tuning mode: LoRA r=16 for the main comparison (identical recipe for every method; fp32 trainables)
 - **Context:** GateSkip trains the whole backbone (lr 3e-6) plus ≈134M gate params on 1× A100 80 GB. We planned LoRA r=16 + routers.
 - **Options:**
   - (a) Each method uses its own recipe (GateSkip full fine-tune, ours LoRA). Faithful, but this mixes up method and fine-tuning capacity.
   - (b) Both use LoRA r=16. Fair, cheaper, and fits a 24 GB GPU, but GateSkip is then weaker than the original.
   - (c) Both use full fine-tuning. Fair and strong, but needs ≥ 40–80 GB VRAM.
 - **Lean:** (b) for the main comparison plus (a) for GateSkip as a reference row. The final choice depends on the GPU (P0-02).
-- **Decide in:** P3-01, once GPU details are known.
+- **Decided:** 2026-11-07 (below).
 - **Colab notes (2026-11-07, D-23):** the GPU is Google Colab.
   - **T4** (16 GB, sm_75): no native bf16, so it runs in fp16. It is used **only for tests, smoke runs and speed checks**. No training on a T4: fp16 training would add loss scaling and a dtype nobody else in the comparison uses. The training configs refuse to run there.
   - **L4** (24 GB, bf16): option (b) fits. The frozen bf16 base is ≈ 3.1 GB, the LoRA r=16 and router weights are fp32 (`train.precision: autocast`), and activations at micro-batch 4 × ≤ 1,024 tokens fit with grad_accum 4.
   - Option (c) does **not** fit on an L4. Full fine-tuning of 1.5B parameters with fp32 master weights and AdamW needs ≈ 1.54B × (4 + 4 + 8) B ≈ 25 GB before activations. Keeping bf16-only weights instead doesn't work at GateSkip's lr 3e-6: an update of ≈ 1e-5 of a weight is far below bf16's resolution (2⁻⁸ ≈ 4e-3), so most updates round to zero.
   - So on the L4, (b) is the only fair option. (a)'s GateSkip full fine-tune reference row needs an A100 80 GB, which Colab offers only intermittently.
-  - **Recommendation:** decide (b) for the main comparison now; keep the (a) reference row as optional, run only if an A100 session is available. Still open until Rishabh confirms. `configs/train/denseft_qwen.yaml` already uses (b) and is marked pending.
+  - **Recommendation:** decide (b) for the main comparison now; keep the (a) reference row as optional, run only if an A100 session is available.
+- **Correction (2026-11-07):** "(c) does not fit on an L4" holds for standard AdamW. 8-bit Adam plus gradient checkpointing could bring a full fine-tune to ≈ 12–14 GB plus activations. That would still be a third recipe (a new dependency, an optimizer GateSkip didn't use, and checkpointing our layer loop doesn't support yet), so it doesn't change the choice.
+- **Decision (Rishabh, 2026-11-07): option (b), LoRA r=16, for the main comparison,** with two conditions:
+  1. **Same recipe everywhere.** Dense-FT, the GateSkip port and our method use the identical LoRA setup: rank, alpha, target modules, learning rate and schedule, data, batch and steps.
+     - **Shared recipe file:** `configs/train/recipes/qwen_lora16.yaml` holds r=16, α=32, all seven projection types, lr 2e-4 with 30 warm-up steps and linear decay, the D-06 chat data, effective batch 16 and 1,013 steps.
+     - **Enforcement:** a config that names it (`recipe:`) may not set `finetune`, `data` or `train` itself; `lagate.training.loop.resolve_recipe` raises if it does, and `test_recipe_is_shared_and_cannot_be_overridden` checks every training config.
+     - **Gates:** router and gate parameters are trained fully in the gated methods, at `method.router_lr`.
+     - **D-12(c) stays separate:** the official-recipe reproduction check (full fine-tune, base Llama, their code) does not use this recipe.
+  2. **Precision.** Trainable parameters (LoRA and routers or gates) are stored in fp32. bf16 autocast is used only for the forward and backward computation (`train.precision: autocast`), and the frozen base stays bf16.
+     - **Guards:** a run with non-fp32 trainable parameters is refused, and so is fp16 autocast training (T4).
+     - **Test:** `test_trainables_and_optimizer_state_fp32_with_bf16_autocast` covers ours, the GateSkip port and Dense-FT on a bf16 tiny model. It checks that trainable parameters, gradients and the AdamW `exp_avg` / `exp_avg_sq` are fp32, that frozen weights are bf16, and that frozen projections compute in bf16 under the training autocast.
+- **Optional extras (not required):** a LoRA r=64 capacity check of both gated methods at one budget and seed 1; a GateSkip full fine-tune reference row (a) if an A100 session is available.
 
 ### D-14 · 2026-11-06 · superseded by D-15 · Dense reference under D-11 = fine-tuned model at 0% skip; untrained dense is reported under D-08 only
 - **Evidence:** run `20261106-060855_gsm8k_zs_dense_qwen_s0`. Untrained Qwen2.5-1.5B-Instruct under D-11 scored 0.0% strict and 16.0% flexible on 50 problems; 0/50 outputs used `#### N`, and 40% ran to the 512-token cap. The same model scored 62.0% on the same 50 problems under D-08. Without the chat template the Instruct model never emits an end-of-turn token, so it runs on after answering.

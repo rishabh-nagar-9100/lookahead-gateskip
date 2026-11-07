@@ -135,3 +135,95 @@ def test_export_hf_merges_lora(tmp_path):
     assert not any("lora" in k for k in reloaded.state_dict())
     with torch.no_grad():
         torch.testing.assert_close(reloaded(ids).logits, before, rtol=1e-4, atol=1e-4)
+
+
+# ----- D-13: one shared recipe; fp32 trainables with bf16 autocast ---------------------------------
+def _bf16_cfg(method: str, ft: str = "lora") -> dict:
+    cfg = smoke_cfg("lagate" if method == "dense" else method, steps=2)
+    if method == "dense":
+        cfg["method"]["name"] = "dense"
+    cfg["model"]["dtype"] = "bfloat16"
+    cfg["train"].update(precision="autocast", autocast_dtype="bfloat16")
+    if ft == "lora":
+        cfg["finetune"] = {"mode": "lora", "lora_r": 4, "lora_alpha": 8,
+                           "lora_target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]}
+    return cfg
+
+
+@pytest.mark.parametrize("method", ["lagate", "gateskip", "dense"])
+def test_trainables_and_optimizer_state_fp32_with_bf16_autocast(method):
+    from lagate.training.loop import setup
+
+    cfg = _bf16_cfg(method)
+    model, opt, sched, batches, _, _ = setup(cfg, 0, "cpu")
+    trainable = {n: p for n, p in model.named_parameters() if p.requires_grad}
+    frozen = {n: p for n, p in model.hf_model.named_parameters() if not p.requires_grad}
+    assert trainable and all(p.dtype == torch.float32 for p in trainable.values())
+    assert any("lora_" in n for n in trainable)
+    if method != "dense":  # routers / GateSkip gates are trained fully, not through LoRA
+        router_ids = {id(p) for p in model.router_parameters()}
+        assert router_ids and router_ids <= {id(p) for p in trainable.values()}
+    assert frozen and all(p.dtype == torch.bfloat16 for p in frozen.values())
+
+    # the forward really runs in bf16: a frozen projection's output under the training autocast
+    seen = []
+    proj = next(m for n, m in model.hf_model.named_modules() if n.endswith("mlp.down_proj.base_layer"))
+    h = proj.register_forward_hook(lambda m, i, o: seen.append(o.dtype))
+    train(cfg, seed=0, setup_out=(model, opt, sched, batches, None, None))
+    h.remove()
+    assert seen and all(d == torch.bfloat16 for d in seen)
+
+    assert all(p.dtype == torch.float32 for p in trainable.values())  # still fp32 after the optimizer steps
+    n_states = 0
+    for group in opt.param_groups:
+        for p in group["params"]:
+            st = opt.state[p]
+            assert p.dtype == torch.float32
+            assert p.grad is None or p.grad.dtype == torch.float32
+            for k in ("exp_avg", "exp_avg_sq"):
+                assert st[k].dtype == torch.float32 and st[k].shape == p.shape
+            n_states += 1
+    assert n_states == len(trainable)
+
+
+def test_bf16_trainables_without_autocast_are_refused():
+    from lagate.training.loop import setup
+
+    cfg = _bf16_cfg("lagate")
+    cfg["train"]["precision"] = "fp32"
+    with pytest.raises(ValueError, match="autocast"):
+        setup(cfg, 0, "cpu")
+
+
+def test_fp16_autocast_training_is_refused():
+    cfg = _bf16_cfg("lagate")
+    cfg["model"]["dtype"] = "float16"
+    cfg["train"]["autocast_dtype"] = "float16"
+    with pytest.raises(RuntimeError, match="fp16"):
+        train(cfg, seed=0)
+
+
+def test_recipe_is_shared_and_cannot_be_overridden(tmp_path):
+    from lagate.training.loop import RECIPE_BLOCKS, resolve_recipe
+
+    users = {}
+    for p in sorted((REPO_ROOT / "configs" / "train").glob("*.yaml")):
+        cfg = load_config(p)
+        if "recipe" in cfg:
+            r = resolve_recipe(cfg)  # raises if the config sets finetune / data / train itself
+            users.setdefault(cfg["recipe"], []).append(r)
+    assert "configs/train/recipes/qwen_lora16.yaml" in users  # Dense-FT uses it
+    for recipe, cfgs in users.items():
+        rec = load_config(REPO_ROOT / recipe)
+        for c in cfgs:
+            assert all(c[b] == rec[b] for b in RECIPE_BLOCKS) and c["recipe_file"] == recipe
+    rec = load_config(REPO_ROOT / "configs/train/recipes/qwen_lora16.yaml")
+    assert rec["finetune"]["mode"] == "lora" and rec["finetune"]["lora_r"] == 16
+    assert rec["train"]["precision"] == "autocast"
+
+    bad = load_config(REPO_ROOT / "configs/train/denseft_qwen.yaml")
+    bad["train"] = {"lr": 1.0}
+    with pytest.raises(ValueError, match="may not set"):
+        resolve_recipe(bad)
+    once = resolve_recipe(load_config(REPO_ROOT / "configs/train/denseft_qwen.yaml"))
+    assert resolve_recipe(once) == once  # idempotent

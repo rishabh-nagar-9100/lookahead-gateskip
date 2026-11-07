@@ -12,6 +12,20 @@ Newest entry first. One entry per work session. Keep it short and factual.
 **Next:**
 ```
 
+### 2026-11-07 · D-13 decided · D-13, P3-02
+**Done:**
+- **D-13 active:** LoRA r=16 for the main comparison, with your two conditions.
+- **Shared recipe:** `configs/train/recipes/qwen_lora16.yaml` is the single recipe for Dense-FT, the GateSkip port and ours. Configs that use it can't override `finetune`, `data` or `train` (`resolve_recipe`), and the router learning rate moved to `method.router_lr`.
+- **Precision:** trainable parameters are always fp32 under bf16 autocast. Non-fp32 trainable parameters and fp16 autocast training are both refused.
+- **Dense-FT config:** `denseft_qwen.yaml` now points at the recipe; the resolved config is saved in each run's `config.yaml`.
+
+**Results / numbers:** 183 tests pass. New tests:
+- precision: dtypes of trainable parameters, gradients and AdamW state, plus the bf16 compute, for all three methods;
+- two refusal tests;
+- the recipe-sharing test.
+
+**Next:** Colab S1 (Rishabh).
+
 ### 2026-11-07 · Colab runner + P3-06 · P0-15, P3-06, D-23, D-13 notes
 **Done:**
 - **D-23:** Qwen2.5-1.5B-Instruct is the primary model until Llama access arrives. GPU = Colab: T4 fp16 for tests, smoke runs and speed checks; L4 bf16 for training and reported evaluations.

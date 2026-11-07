@@ -23,7 +23,7 @@ import numpy as np
 import torch
 from dotenv import load_dotenv
 
-from lagate.training.loop import checkpoint_dir, collect_calibration_gates, setup
+from lagate.training.loop import checkpoint_dir, collect_calibration_gates, resolve_recipe, setup
 from lagate.calibration.ecdf import ecdf_threshold
 from lagate.routing.gateskip import GateSkipModel, calibrate_gateskip
 from lagate.utils import REPO_ROOT, create_run_dir, load_config, resolve_device, resolve_dtype_name, save_json, set_seed
@@ -36,7 +36,7 @@ def main() -> None:
     args = p.parse_args()
     load_dotenv(REPO_ROOT / ".env")
     cfg = load_config(args.config)
-    tcfg = load_config(REPO_ROOT / cfg["train_config"])
+    tcfg = resolve_recipe(load_config(REPO_ROOT / cfg["train_config"]))
     set_seed(args.seed)
     device = resolve_device(cfg.get("device", tcfg.get("device", "auto")))
     ck_path = checkpoint_dir(tcfg, args.seed) / "latest.pt"

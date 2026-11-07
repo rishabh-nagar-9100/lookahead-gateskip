@@ -47,6 +47,33 @@ METHODS = ("lagate", "gateskip", "dense")
 
 
 # ----- construction ------------------------------------------------------------------------------
+RECIPE_BLOCKS = ("finetune", "data", "train")
+
+
+def resolve_recipe(cfg: dict) -> dict:
+    """D-13 condition 1: one shared fine-tuning recipe for Dense-FT, the GateSkip port and ours.
+
+    A config with ``recipe: <path>`` takes its ``finetune``, ``data`` and ``train`` blocks from that
+    file and may not set any of them itself, so the three methods cannot drift apart. Method-specific
+    settings (router config, sparsity weight, ``method.router_lr``) live under ``method``. Returns a
+    new dict with the blocks filled in and ``recipe_file`` recording the source; resolving twice is a
+    no-op.
+    """
+    if "recipe" not in cfg:
+        return cfg
+    clash = [b for b in RECIPE_BLOCKS if b in cfg]
+    if clash:
+        raise ValueError(f"{cfg.get('name')}: a recipe config may not set {clash}; change {cfg['recipe']} instead "
+                         "(it applies to every method, D-13)")
+    recipe = load_config(REPO_ROOT / cfg["recipe"])
+    missing = [b for b in RECIPE_BLOCKS if b not in recipe]
+    if missing:
+        raise ValueError(f"recipe {cfg['recipe']} lacks {missing}")
+    out = {k: v for k, v in cfg.items() if k != "recipe"}
+    out.update({b: recipe[b] for b in RECIPE_BLOCKS}, recipe_file=cfg["recipe"])
+    return out
+
+
 def resolve_data_cfg(data: dict) -> dict:
     """``data.config`` (e.g. configs/data/d06_chat.yaml) merged with the run's own data keys."""
     if "config" not in data:
@@ -57,7 +84,10 @@ def resolve_data_cfg(data: dict) -> dict:
 def build_hf_model(model_cfg: dict, seed: int, device: str = "cpu") -> torch.nn.Module:
     if "tiny" in model_cfg:
         t = dict(model_cfg["tiny"])
-        return build_tiny(t.pop("arch"), seed=seed, **t)
+        m = build_tiny(t.pop("arch"), seed=seed, **t)
+        if "dtype" in model_cfg:  # e.g. bf16 tiny models for the precision tests
+            m = m.to(getattr(torch, resolve_dtype_name(model_cfg["dtype"], device)))
+        return m
     from transformers import AutoModelForCausalLM
 
     dtype = getattr(torch, resolve_dtype_name(model_cfg.get("dtype", "float32"), device))
@@ -122,11 +152,16 @@ def lr_lambda(train: dict):
     return f
 
 
-def build_optimizer(model: torch.nn.Module, train: dict) -> torch.optim.Optimizer:
+def build_optimizer(model: torch.nn.Module, train: dict, method: dict | None = None) -> torch.optim.Optimizer:
+    """Backbone (LoRA / full) at ``train.lr``; router or gate parameters at ``method.router_lr``
+    (falls back to ``train.router_lr`` for the older smoke configs)."""
     router = [p for p in model.router_parameters() if p.requires_grad]
     rid = {id(p) for p in router}
     backbone = [p for p in model.parameters() if p.requires_grad and id(p) not in rid]
-    groups = [g for g in ({"params": backbone, "lr": train["lr"]}, {"params": router, "lr": train["router_lr"]}) if g["params"]]
+    router_lr = (method or {}).get("router_lr", train.get("router_lr"))
+    if router and router_lr is None:
+        raise ValueError("trainable router/gate parameters but no method.router_lr")
+    groups = [g for g in ({"params": backbone, "lr": train["lr"]}, {"params": router, "lr": router_lr}) if g["params"]]
     return torch.optim.AdamW(groups, weight_decay=train.get("weight_decay", 0.0))
 
 
@@ -198,6 +233,7 @@ def load_checkpoint(path: Path, model, opt, sched, cfg: dict) -> dict:
 # ----- training ------------------------------------------------------------------------------------
 def setup(cfg: dict, seed: int, device: str):
     """Model, optimiser, scheduler, batch iterator, chat dataset (or None) and the PeftModel (or None)."""
+    cfg = resolve_recipe(cfg)
     data_cfg = resolve_data_cfg(cfg["data"])
     hf = build_hf_model(cfg["model"], seed, device).to(device)
     chat = None
@@ -212,19 +248,27 @@ def setup(cfg: dict, seed: int, device: str):
         for p in model.parameters():  # LoRA / router / full-FT weights in fp32; frozen weights keep the model dtype
             if p.requires_grad:
                 p.data = p.data.float()
-    opt = build_optimizer(model, tr)
+    # D-13 condition 2: trainable parameters are always stored in fp32 (bf16/fp16 only inside autocast).
+    # A bf16 base without `precision: autocast` would train bf16 weights; refuse instead.
+    low = sorted({str(p.dtype) for p in model.parameters() if p.requires_grad and p.dtype != torch.float32})
+    if low:
+        raise ValueError(f"trainable parameters in {low}; set train.precision: autocast (D-13)")
+    opt = build_optimizer(model, tr, cfg["method"])
     sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda(tr))
     batches = make_batches(data_cfg, hf.config.vocab_size, seed, "train", chat=chat)
     return model, opt, sched, batches, chat, peft_model
 
 
 def _autocast(device: str, tr: dict, model_dtype: torch.dtype):
-    if tr.get("precision", "fp32") != "autocast":
+    if tr.get("precision", "fp32") != "autocast" or model_dtype == torch.float32:
         return torch.autocast(device_type=device.split(":")[0], enabled=False)
+    if model_dtype == torch.float16:  # would need loss scaling; T4 sessions are for tests only (D-13, D-23)
+        raise RuntimeError("fp16 autocast training is not used in this project: train on an L4/A100 (bf16)")
     return torch.autocast(device_type=device.split(":")[0], dtype=model_dtype)
 
 
 def train(cfg: dict, seed: int, device: str = "cpu", setup_out=None) -> tuple[torch.nn.Module, list[dict]]:
+    cfg = resolve_recipe(cfg)
     model, opt, sched, batches, chat, peft_model = setup_out or setup(cfg, seed, device)
     tr = cfg["train"]
     accum = tr.get("grad_accum", 1)
@@ -308,6 +352,7 @@ def _accumulate(acc: dict, new: dict) -> None:
 def collect_calibration_gates(model, cfg: dict, seed: int, device: str, n_batches: int | None = None,
                               chat=None) -> dict[str, np.ndarray]:
     """Soft gates on the calibration split, no skipping. Returns per-gate (N_valid_tokens, L) arrays."""
+    cfg = resolve_recipe(cfg)
     chat = chat if chat is not None else getattr(model, "_chat", None)
     batches = make_batches(resolve_data_cfg(cfg["data"]), model.hf_model.config.vocab_size, seed, "calibration", chat=chat)
     n_batches = n_batches if n_batches is not None else cfg["smoke_eval"]["calibration_batches"]
@@ -389,6 +434,7 @@ def export_hf(model, out_dir: Path) -> None:
 
 def run(cfg: dict, seed: int, run_dir: Path, device: str = "cpu") -> dict[str, Any]:
     device = resolve_device(device)
+    cfg = resolve_recipe(cfg)
     model, log = train(cfg, seed, device)
     metrics: dict[str, Any] = {"method": cfg["method"]["name"], "finetune": cfg["finetune"]["mode"], "train_log": log}
     first, last = log[0], log[-1]
