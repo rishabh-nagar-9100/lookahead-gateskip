@@ -1,0 +1,8 @@
+# P3-08 verification checkpoint (D-15): the main GSM8K chat protocol on the D-06 *calibration* split,
+# i.e. GSM8K train rows held out from training (configs/data/d06_chat.yaml). Never the test set.
+# Identical to gsm8k_chat_zs except the split; the eval config selects the held-out rows (eval.doc_ids).
+include: gsm8k_chat_zs.yaml
+task: gsm8k_chat_zs_calib
+test_split: train
+dataset_kwargs:
+  revision: 740312add88f781978c0658806c59bc2815b9866   # same snapshot as the training data (row ids must match)

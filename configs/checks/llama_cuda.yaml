@@ -5,8 +5,8 @@ name: realcheck_llama_cuda
 model: meta-llama/Llama-3.2-1B-Instruct
 expected_dims_config: configs/flops/llama.yaml
 device: cuda
-teq_dtypes: [float32, bfloat16]   # fp32 = tight check; bf16 = CUDA deployment dtype (eval configs)
-gen_dtype: bfloat16
+teq_dtypes: [float32, auto]       # fp32 = tight check; auto = bf16 on L4/A100, fp16 on T4 (deployment dtype)
+gen_dtype: auto                   # bf16 on L4/A100, fp16 on T4 (meta.json records the resolved dtype)
 prompts:
   dataset: openai/gsm8k
   subset: main

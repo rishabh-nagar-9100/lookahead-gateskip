@@ -59,3 +59,79 @@ def test_dense_ft_and_router_only_and_lora():
     trainable = {n for n, p in model.hf_model.named_parameters() if p.requires_grad}
     assert trainable and all("lora_" in n for n in trainable)
     assert math.isfinite(log[-1]["loss"])
+
+
+# ----- checkpoint / resume (Colab sessions end without warning) -----------------------------------
+class _Killed(Exception):
+    pass
+
+
+def _killing(batches, n):
+    for i, b in enumerate(batches):
+        if i == n:
+            raise _Killed
+        yield b
+
+
+@pytest.mark.parametrize("method", ["lagate", "gateskip"])
+def test_resume_matches_uninterrupted_run(method, tmp_path):
+    from lagate.training.loop import setup, trainable_state
+
+    cfg = smoke_cfg(method, steps=6)
+    cfg["train"]["grad_accum"] = 2
+    cfg["checkpoint"] = {"enabled": True, "root": str(tmp_path / "a"), "every_minutes": 1e9, "at_steps": [3]}
+    ref, ref_log = train(copy.deepcopy(cfg), seed=0)
+
+    cfg["checkpoint"]["root"] = str(tmp_path / "b")
+    torch.manual_seed(0)
+    s = list(setup(cfg, 0, "cpu"))
+    s[3] = _killing(s[3], 4 * 2)  # dies during step 4 (after the step-3 checkpoint)
+    with pytest.raises(_Killed):
+        train(cfg, seed=0, setup_out=tuple(s))
+    assert (tmp_path / "b" / f"{cfg['name']}_s0" / "latest.pt").exists()
+
+    torch.manual_seed(0)
+    resumed, log = train(cfg, seed=0)  # fresh process state; resumes from step 3
+    assert log[-1]["resumed_at_step"] == 3 and len(log) == 6
+    for a, b in zip(ref_log, log):
+        assert a["loss"] == pytest.approx(b["loss"], rel=1e-6, abs=1e-7)
+    ra, rb = trainable_state(ref), trainable_state(resumed)
+    assert ra.keys() == rb.keys()
+    for k in ra:
+        torch.testing.assert_close(ra[k], rb[k], rtol=1e-6, atol=1e-7)
+
+
+def test_resume_refuses_a_different_config(tmp_path):
+    cfg = smoke_cfg("lagate", steps=2)
+    cfg["checkpoint"] = {"enabled": True, "root": str(tmp_path)}
+    train(copy.deepcopy(cfg), seed=0)
+    cfg["train"]["lr"] *= 2
+    with pytest.raises(RuntimeError, match="different training config"):
+        train(cfg, seed=0)
+
+
+def test_autocast_bf16_with_fp32_trainables():
+    cfg = smoke_cfg("lagate", steps=3)
+    cfg["train"].update(precision="autocast", autocast_dtype="bfloat16")
+    model, log = train(cfg, seed=0)
+    assert all(math.isfinite(r["loss"]) for r in log)
+    assert all(p.dtype == torch.float32 for p in model.parameters() if p.requires_grad)
+
+
+def test_export_hf_merges_lora(tmp_path):
+    from transformers import AutoModelForCausalLM
+
+    from lagate.training.loop import export_hf
+
+    cfg = smoke_cfg("lagate", steps=2)
+    cfg["method"]["name"] = "dense"
+    cfg["finetune"] = {"mode": "lora", "lora_r": 4, "lora_alpha": 8, "lora_target_modules": ["q_proj", "v_proj"]}
+    model, _ = train(cfg, seed=0)
+    ids = torch.tensor([[3, 4, 5, 6, 7]])
+    with torch.no_grad():
+        before = model(ids).logits
+    export_hf(model, tmp_path / "hf")
+    reloaded = AutoModelForCausalLM.from_pretrained(tmp_path / "hf").eval()
+    assert not any("lora" in k for k in reloaded.state_dict())
+    with torch.no_grad():
+        torch.testing.assert_close(reloaded(ids).logits, before, rtol=1e-4, atol=1e-4)

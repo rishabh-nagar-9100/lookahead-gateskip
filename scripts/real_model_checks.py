@@ -28,7 +28,7 @@ from lagate.engine.tiered import DensePolicy, EngineConfig, FixedTierPolicy, Tie
 from lagate.models.gated import LookaheadGatedModel
 from lagate.routing.router import RouterConfig
 from lagate.models.adapter import DecoderAdapter, Dims
-from lagate.utils import REPO_ROOT, create_run_dir, load_config, save_json, set_seed
+from lagate.utils import REPO_ROOT, create_run_dir, load_config, resolve_dtype_name, save_json, set_seed
 
 
 def sync(device: str) -> None:
@@ -126,7 +126,11 @@ def main() -> None:
     cfg = load_config(args.config)
     set_seed(args.seed)
     device = cfg["device"]
-    run_dir = create_run_dir(cfg, args.seed, cfg["name"], extra_meta={"device": device})
+    # 'auto' / 'bfloat16' resolve per GPU: bf16 on L4/A100, fp16 on a T4 (no native bf16); both names are recorded
+    teq_dtypes = list(dict.fromkeys(resolve_dtype_name(d, device) for d in cfg["teq_dtypes"]))
+    gen_dtype = resolve_dtype_name(cfg["gen_dtype"], device)
+    run_dir = create_run_dir(cfg, args.seed, cfg["name"], extra_meta={
+        "device": device, "teq_dtypes_resolved": teq_dtypes, "gen_dtype_resolved": gen_dtype})
     from transformers import AutoConfig, AutoTokenizer
 
     out: dict = {}
@@ -142,7 +146,7 @@ def main() -> None:
 
     # 2. T-EQ per dtype
     out["teq"] = {}
-    for dt in cfg["teq_dtypes"]:
+    for dt in teq_dtypes:
         model = load_model(cfg["model"], dt, device)
         r = teq(model, prompts, device)
         out["teq"][dt] = r
@@ -159,7 +163,7 @@ def main() -> None:
     n = cfg["generate"]["max_new_tokens"]
     lat = cfg["latency"]
     out["latency"] = {"new_tokens": n, "per_prompt": []}
-    models = {a: load_model(cfg["model"], cfg["gen_dtype"], device, attn=a) for a in lat["hf_attn_implementations"][:1]}
+    models = {a: load_model(cfg["model"], gen_dtype, device, attn=a) for a in lat["hf_attn_implementations"][:1]}
     base = models[lat["hf_attn_implementations"][0]]
     overrides = cfg["generate"].get("hf_overrides", {})
     out["generate_match"] = compare_generate(base, prompts, n, device, overrides)

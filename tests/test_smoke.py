@@ -71,7 +71,7 @@ GSM8K_PROTOCOLS = {
              "fewshot_as_multiturn": False, "primary_metric": "exact_match,strict-match"},
     "D-08": {"tasks": ["gsm8k_cot_llama"], "num_fewshot": 8, "apply_chat_template": True,
              "fewshot_as_multiturn": True, "primary_metric": "exact_match,flexible-extract"},
-    "D-15": {"tasks": ["gsm8k_chat_zs"], "num_fewshot": 0, "apply_chat_template": True,
+    "D-15": {"num_fewshot": 0, "apply_chat_template": True,
              "fewshot_as_multiturn": False, "primary_metric": "exact_match,strict-match",
              "include_path": "configs/eval/tasks"},
 }
@@ -93,8 +93,14 @@ def test_eval_configs_follow_protocol(path):
     assert ev["gen_kwargs"]["repetition_penalty"] == 1.0
     if cfg["protocol"] == "D-15":
         assert "####" in ev["system_instruction"]
+        # test set (gsm8k_chat_zs), or the D-06 calibration split for the P3-08 check (never test)
+        assert ev["tasks"] in (["gsm8k_chat_zs"], ["gsm8k_chat_zs_calib"])
+        if ev["tasks"] == ["gsm8k_chat_zs_calib"]:
+            assert ev["doc_ids"]["source"] == "gsm8k"
         for task in ev["tasks"]:  # custom task YAML must exist and declare the same task name
             task_cfg = yaml.safe_load((REPO_ROOT / ev["include_path"] / f"{task}.yaml").read_text())
+            if "include" in task_cfg:
+                task_cfg = {**yaml.safe_load((REPO_ROOT / ev["include_path"] / task_cfg["include"]).read_text()), **task_cfg}
             assert task_cfg["task"] == task and task_cfg["num_fewshot"] == 0
 
 

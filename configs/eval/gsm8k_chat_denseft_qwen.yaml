@@ -1,0 +1,29 @@
+# Dense-FT reference (P3-07, E-DFT-Q) under the main GSM8K protocol for trained models (DECISIONS D-15): chat template, 0-shot, system instruction asks for "#### N".
+# Task: configs/eval/tasks/gsm8k_chat_zs.yaml (the _calib variant: held-out GSM8K train rows). Greedy, max 512 new tokens, pure greedy (D-21).
+name: gsm8k_chat_denseft_qwen
+protocol: D-15   # main protocol (trained models); P3-06 reuses system_instruction verbatim
+
+model:
+  pretrained: checkpoints/denseft_qwen_s1/hf   # merged export of configs/train/denseft_qwen.yaml, seed 1 (on Drive in Colab)
+  device: auto            # auto -> cuda, else mps, else cpu
+  dtype: auto             # auto -> dtype_by_device below
+  dtype_by_device:
+    cuda: bfloat16
+    mps: float16          # MPS bf16 coverage is incomplete (docs/SETUP.md)
+    cpu: float32
+
+eval:
+  tasks: [gsm8k_chat_zs]
+  include_path: configs/eval/tasks
+  num_fewshot: 0
+  apply_chat_template: true
+  fewshot_as_multiturn: false
+  system_instruction: "Solve the math problem step by step. End your answer with a final line of the form '#### N', where N is the final answer as a plain number with no units or symbols."
+  batch_size: 1
+  limit: null             # null = full test set (1,319); override with --limit
+  gen_kwargs:
+    do_sample: false      # greedy
+    max_gen_toks: 512
+    repetition_penalty: 1.0   # pure greedy (D-21): overrides the model generation_config (Qwen sets 1.1)
+  log_samples: true       # raw generations go to results/raw/<run_id>/ (git-ignored)
+  primary_metric: exact_match,strict-match

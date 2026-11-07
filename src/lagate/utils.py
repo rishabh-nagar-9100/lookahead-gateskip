@@ -136,11 +136,77 @@ def create_run_dir(
         "python": sys.version,
         "platform": platform.platform(),
         "argv": sys.argv,
+        "accelerator": accelerator_info(),
     }
     if extra_meta:
         meta.update(extra_meta)
     save_json(meta, run_dir / "meta.json")
     return run_dir
+
+
+def resolve_device(requested: str = "auto") -> str:
+    """'auto' -> cuda, else mps, else cpu; anything else is returned unchanged."""
+    import torch
+
+    if requested != "auto":
+        return requested
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+def cuda_has_native_bf16() -> bool:
+    """True on Ampere or newer (A100, L4, RTX 30xx/40xx). A T4 (sm_75) is False.
+
+    ``torch.cuda.is_bf16_supported()`` is not used: recent torch releases report True on a T4
+    because bf16 can be emulated there, which is slow and not what we want to measure.
+    """
+    import torch
+
+    return torch.cuda.is_available() and torch.cuda.get_device_capability(0) >= (8, 0)
+
+
+def resolve_dtype_name(name: str, device: str) -> str:
+    """Map a configured dtype name to the one actually used on ``device``.
+
+    'auto' -> bfloat16 on CUDA with native bf16 (L4/A100), float16 on older CUDA (T4) and on MPS,
+    float32 on CPU. An explicit 'bfloat16' on a CUDA GPU without native bf16 falls back to float16;
+    the caller records both names (meta.json), so the substitution is never silent.
+    """
+    dev = device.split(":")[0]
+    if name == "auto":
+        if dev == "cuda":
+            return "bfloat16" if cuda_has_native_bf16() else "float16"
+        return "float16" if dev == "mps" else "float32"
+    if name == "bfloat16" and dev == "cuda" and not cuda_has_native_bf16():
+        return "float16"
+    return name
+
+
+def accelerator_info() -> dict[str, Any]:
+    """GPU type and capabilities for meta.json (empty fields on CPU / MPS)."""
+    info: dict[str, Any] = {"cuda": False}
+    try:
+        import torch
+    except ImportError:
+        return info
+    if torch.cuda.is_available():
+        p = torch.cuda.get_device_properties(0)
+        info.update(
+            cuda=True,
+            gpu_name=p.name,
+            gpu_count=torch.cuda.device_count(),
+            compute_capability=f"{p.major}.{p.minor}",
+            total_memory_gb=round(p.total_memory / 2**30, 1),
+            native_bf16=cuda_has_native_bf16(),
+            cuda_version=torch.version.cuda,
+        )
+    else:
+        info["mps"] = bool(getattr(torch.backends, "mps", None) and torch.backends.mps.is_available())
+    info["colab"] = "COLAB_RELEASE_TAG" in os.environ or "COLAB_GPU" in os.environ
+    return info
 
 
 def save_json(obj: Any, path: str | os.PathLike) -> None:
