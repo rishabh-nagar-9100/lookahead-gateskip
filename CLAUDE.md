@@ -3,6 +3,7 @@
 LookAhead-GateSkip: token-wise dynamic layer skipping for SLMs (Llama-3.2-1B-Instruct, Qwen2.5-1.5B-Instruct), built on GateSkip (https://github.com/Thiggel/GateSkip).
 
 ## Read first
+- **`docs/STATUS.md` – read this before anything else.** Current status, blockers, next steps and the Colab checklist.
 - `docs/ARCHITECTURE.md` – the spec. Code must match it.
 - `docs/TASKS.md` – current task IDs and status.
 - `docs/DECISIONS.md` – do not reverse an active decision without adding a new entry.
@@ -21,4 +22,4 @@ LookAhead-GateSkip: token-wise dynamic layer skipping for SLMs (Llama-3.2-1B-Ins
 - Never commit tokens, checkpoints or raw generations.
 
 ## After finishing a task
-Update `docs/TASKS.md` (status), append to `docs/DEV_LOG.md`, and register any run in `docs/EXPERIMENTS.md`.
+Update `docs/TASKS.md` (status), append to `docs/DEV_LOG.md`, and register any run in `docs/EXPERIMENTS.md`. Keep `docs/STATUS.md` current when a phase, blocker or next step changes.

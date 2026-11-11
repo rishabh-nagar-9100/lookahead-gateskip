@@ -1,5 +1,7 @@
 # LookAhead-GateSkip
 
+> **Start here: [docs/STATUS.md](docs/STATUS.md)** — current status, next steps, Colab checklist and how to resume.
+
 Context-aware dynamic layer skipping for reasoning in Small Language Models (SLMs).
 Major Project (21CSP401L), SRM Institute of Science and Technology.
 
@@ -23,6 +25,7 @@ The goal is a better accuracy–compute trade-off than GateSkip on GSM8K at matc
 
 | File | Purpose | Update when |
 |---|---|---|
+| `docs/STATUS.md` | One-page status and resume guide (read first) | At every pause or phase change |
 | `docs/PROJECT_PLAN.md` | Phases, milestones, review deliverables, go/no-go gates | Phase boundaries; scope changes |
 | `docs/TASKS.md` | Task checklist with IDs and status | Every work session |
 | `docs/ARCHITECTURE.md` | Technical spec: math, shapes, tiers, KV handling, FLOPs | Any design change (and log it in DECISIONS) |
@@ -62,4 +65,4 @@ lookahead-gateskip/
 
 ## Status
 
-See `docs/TASKS.md` for live status. Current phase: **Phase 0 – Setup** (November 2026).
+See [docs/STATUS.md](docs/STATUS.md) for the summary and `docs/TASKS.md` for live task status. Phases 0–2 are done on CPU/MPS; Phase 3 (training on Colab) is next, starting with Colab session S1. Paused 2026-11-11 for a week.

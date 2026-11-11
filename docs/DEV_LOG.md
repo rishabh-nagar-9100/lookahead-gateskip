@@ -12,6 +12,34 @@ Newest entry first. One entry per work session. Keep it short and factual.
 **Next:**
 ```
 
+### 2026-11-11 · Pause for a week · week summary (2026-11-06 … 11-07)
+**Done this week:**
+- **Phase 0 setup:** repo, uv env, CI on CPU, GitHub remote. Eval protocols D-08, D-11 and then D-15 (chat format with a Dense-FT reference), the robust extractor, and D-21 pure greedy.
+- **GateSkip code review:** at bs=1 decode its thresholds skip nothing, its K,V copy is a silent no-op, and its gates cost 13.7% of a layer against our router's 0.6%. This led to D-12, D-16 and D-18 (our own port with fixed calibrated thresholds).
+- **Phase 2 core on CPU:**
+  - adapter, EMA, router, gated forward;
+  - three-tier engine with exact Tier-3 K,V;
+  - FLOP counter, GateSkip port, shared training loop;
+  - T-EQ, T-KV, T-T3, T-FLOP and T-EMA green.
+- **Real Qwen on MPS:** T-EQ 0.0, and the dense engine matches HF greedy. The dense engine runs at 1.05× HF; the routing path at 1.6–1.68× because of host syncs (P5-05, P5-06; D-22 proposed).
+- **GPU prep:**
+  - D-23: Qwen primary; Colab T4 for tests, L4 for training.
+  - Colab notebook and helpers.
+  - Checkpoint and resume, sharded eval and merge, `calibrate.py`.
+- **Training setup:**
+  - P3-06 chat data (16,211 train / 1,000 calibration).
+  - D-13 active: one shared LoRA r=16 recipe, fp32 trainables under bf16 autocast.
+
+**Today:**
+- Added [STATUS.md](STATUS.md), the one-page resume guide.
+- TASKS statuses refreshed (P3-02, P3-04, P0-15).
+- RISKS updated: R4 and R5 current state; new R10 (P3-08 format check) and R11 (Llama licence).
+- README and CLAUDE.md now point to STATUS.md first.
+
+**Results / numbers:** no new runs. 183 tests pass. Last code commit `f87f5b8`.
+**Problems:** nothing has run on CUDA yet. Llama is still gated (403).
+**Next:** Colab S1 on a T4 (setup, `test`, `teq` with the speed check, `smoke`), then S2 on an L4 (Dense-FT + P3-08). See STATUS.md, "Next steps".
+
 ### 2026-11-07 · D-13 decided · D-13, P3-02
 **Done:**
 - **D-13 active:** LoRA r=16 for the main comparison, with your two conditions.

@@ -3,6 +3,8 @@
 Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked (say why).
 Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation script`).
 
+**Paused 2026-11-11 for a week.** Start from [STATUS.md](STATUS.md). Next: Colab S1 (P0-13). 183 tests pass; last code commit `f87f5b8`.
+
 ## Phase 0 – Setup
 - [!] P0-01 Request Hugging Face access to meta-llama/Llama-3.2-1B-Instruct; create read token — token created and working (user rishabh9100); Llama licence approval still pending (403 GatedRepoError on 2026-11-06)
 - [x] P0-02 Confirm GPU access: **Google Colab** (free T4 for setup/tests/smoke/speed checks, paid L4 for training; A100 only if available), D-23. Primary model is Qwen2.5-1.5B-Instruct until Llama access arrives (D-23)
@@ -26,7 +28,7 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
   - **Evaluation:** sharded eval + `scripts/merge_shards.py` (sharded = unsharded outputs on 4 problems); 177 tests.
   - **Hardware and dtypes:** GPU type in every meta.json; bf16 on L4/A100, fp16 on T4.
   - **Other pieces:** `scripts/calibrate.py`; only small result files are pushed.
-  - **Status:** not yet run on Colab (S1).
+  - **Status:** not yet run on Colab (S1). 183 tests after D-13 (`f87f5b8`).
 - [ ] P0-13 First GPU session = **Colab S1** (T4): setup, `test`, `teq` (incl. the CUDA speed check), `smoke`; then on the first L4 session time 200 real training steps per method and update `configs/budget/gpu_budget.yaml` and `docs/GPU_BUDGET.md` with measured numbers
 - [ ] P0-08 Confirm review dates with guide; fill them into PROJECT_PLAN.md
 - [ ] P0-09 Optional: Weights & Biases project for run tracking
@@ -75,9 +77,9 @@ Each task has an ID; reference it in commits (e.g. `P1-03: add gate correlation 
 - [ ] P3-07 Dense-FT reference training (D-15, E-DFT): same chat data, recipe, steps and seeds as the main comparison (D-13 fine-tuning mode), no router or gates. Llama-3.2-1B-Instruct first, then Qwen2.5-1.5B-Instruct (E-DFT-Q).
 - [ ] P3-08 **Verification checkpoint (D-15):** on the first Dense-FT model (E-DFT seed 1), calibration split: ≥ 90% `#### N`, ≤ 2% cap hits, |strict − flexible| ≤ 4 pts; also log robust accuracy. **If it fails, revisit the protocol before training any gated model (P3-02 onward, P4-01 GateSkip).**
 - [ ] P3-02 Training loop: LoRA r=16 + routers, compute-weighted sparsity loss, budget schedule (gated training starts only after P3-08 passes)
-  - Done on CPU (P2-08): shared loop `lagate.training.loop` for ours / GateSkip port / Dense-FT, with full, LoRA and router-only modes and the compute-weighted L_S. Still to do: the real data source (P3-06), the budget schedule, and a LoRA r=16 config once D-13 is decided.
+  - Done on CPU (P2-08): shared loop `lagate.training.loop` for ours / GateSkip port / Dense-FT, with full, LoRA and router-only modes and the compute-weighted L_S. Since then: the real data source (P3-06) is in, and D-13 is active with the shared LoRA r=16 recipe `configs/train/recipes/qwen_lora16.yaml` (fp32 trainables under bf16 autocast, enforced and tested). Still to do: the budget schedule, and the gated Qwen training configs on the shared recipe (`method.router_lr`, λ) plus `configs/calibrate/<method>_qwen.yaml` (before S3).
 - [ ] P3-03 λ sweep (3–4 values) on Llama
-- [ ] P3-04 Calibration script: τ_L, τ_M from empirical CDF for 15/25/35%
+- [ ] P3-04 Calibration script: τ_L, τ_M from empirical CDF for 15/25/35%. Per-gate version exists (`scripts/calibrate.py`, used by the smoke runs); the joint (τ_L, τ_M) search for a target compute budget (building on `lagate.calibration.ecdf.match_budget`) and the Qwen calibrate configs are still to do
 - [ ] P3-05 E4: main GSM8K result, 3 seeds
 
 ## Colab session plan (D-23)
